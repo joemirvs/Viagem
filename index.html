@@ -4,6 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Mapa de Viagem</title>
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#3a2311">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Pirata+One&display=swap" rel="stylesheet">
@@ -1347,6 +1351,7 @@ async function local(){
   S.mode='local';S.canAdd=true;readyRes();setTag(S.idb?'Fotos guardadas só neste navegador':'As fotos somem ao fechar a página');refresh();if(S.photos.length)flyTo(fitAll(),0);
 }
 (async()=>{
+  try{if('serviceWorker' in navigator&&!window.claude&&/github\.io$/.test(location.hostname))navigator.serviceWorker.register('sw.js')}catch{}
   rebuild();
   if(!(window.claude&&window.claude.use)){await local();return}
   const use=n=>window.claude.use(n).catch(()=>null);
