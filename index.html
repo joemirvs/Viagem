@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mapa de Viagem</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital,wght@0,400;0,600;1,400&family=Pirata+One&display=swap" rel="stylesheet">
+<style>
+/* VOICE: aventura serena, diário de um explorador; letra de cartógrafo, nada de painel de software.
+   IDEA: um mapa do tesouro de pergaminho desenhado à mão, onde cada foto vira um X vermelho.
+   PICTURE: o próprio mapa de Israel ocupa a tela inteira: costa gravada, mares, rosa dos ventos, trilha tracejada.
+   COLOUR and TYPE: pergaminho e tinta sépia, lacre vermelho como acento; Pirata One nos títulos, EB Garamond no texto.
+   LAYOUT: mapa em tela cheia, cartucho no topo, barra de ações embaixo, histórias numa folha que sobe (lateral em telas largas). */
+:root{color-scheme:light dark;
+--table:light-dark(#4a2f17,#120b05);
+--parch:light-dark(#ecd8aa,#cfb37e);
+--sea:light-dark(#c4bc98,#a99a72);
+--ink:#3a2311;
+--wax:#a3251a;--wax2:#7d180f;
+--card:light-dark(#f4e6c4,#2a1d11);
+--cardink:light-dark(#35210f,#efdfbb);
+--muted:light-dark(#7a5a3a,#c2a77d);
+--line:light-dark(#cfb27a,#5a4128);
+--btn:light-dark(#e6cf9c,#3b2a18);
+}
+:root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
+*{box-sizing:border-box;min-width:0}
+html,body{height:100%}
+body{margin:0;background:var(--table);color:var(--cardink);font:17px/1.5 "EB Garamond",Georgia,serif;overflow:hidden;-webkit-tap-highlight-color:transparent}
+button,select,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--wax);outline-offset:2px}
+#app{position:fixed;inset:0;display:grid;grid-template-rows:1fr auto}
+#mapwrap{position:relative;overflow:hidden;background-color:var(--parch);margin:max(6px,env(safe-area-inset-top)) 6px 0;border-radius:6px 6px 2px 2px}
+#mapwrap::before{content:"";position:absolute;inset:0;pointer-events:none;z-index:2;box-shadow:inset 0 0 0 2px #6b4320,inset 0 0 60px 14px rgba(96,54,18,.72),inset 0 0 140px 30px rgba(120,72,24,.25)}
+#mapwrap::after{content:"";position:absolute;inset:9px;pointer-events:none;z-index:2;border:3px double rgba(58,35,17,.55)}
+#map{position:absolute;inset:0;width:100%;height:100%;touch-action:none;display:block;user-select:none;-webkit-user-select:none}
+.sea{fill:var(--sea)}.land{fill:var(--parch)}
+.land{stroke:none}
+.grat{fill:none;stroke:var(--ink);stroke-width:.7;stroke-dasharray:4 5;vector-effect:non-scaling-stroke;opacity:.35}
+.grat.eq{stroke:var(--wax);stroke-width:1;opacity:.45;stroke-dasharray:8 5}
+.rhumb{fill:none;stroke:var(--ink);stroke-width:.6;vector-effect:non-scaling-stroke;opacity:.22}
+#monsters{pointer-events:none}
+.halo{fill:none;stroke:var(--ink);vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.coast{fill:none;stroke:var(--ink);stroke-width:1.7;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.lake{fill:var(--sea);stroke:var(--ink);stroke-width:1.3;vector-effect:non-scaling-stroke}
+.river{fill:none;stroke:#4d6b7a;stroke-width:1.6;vector-effect:non-scaling-stroke;stroke-linecap:round;opacity:.8}
+.walls{fill:rgba(163,37,26,.07);stroke:var(--ink);stroke-width:2.2;stroke-dasharray:1 3;vector-effect:non-scaling-stroke;stroke-linecap:round}
+.lb{font:600 13px "EB Garamond",Georgia,serif;fill:var(--ink);paint-order:stroke;stroke:var(--parch);stroke-width:4px;stroke-linejoin:round}
+.lb.c{font-size:15px;letter-spacing:.02em}
+.lb.w{font-style:italic;font-weight:400;font-size:17px;fill:#4a5e66;stroke:none;letter-spacing:.12em}
+.lb.r{font-family:"Pirata One",serif;font-weight:400;font-size:20px;fill:rgba(58,35,17,.45);stroke:none;letter-spacing:.18em}
+.lb.q{font-style:italic;font-weight:400;font-size:13px;fill:rgba(58,35,17,.7)}
+.lb.v{fill:var(--wax2)}
+.dotc{fill:var(--ink)}
+.m .hit,.cl .hit{fill:transparent}
+.m .ring{fill:rgba(236,216,170,.6);stroke:var(--ink);stroke-width:1.4}
+.m .pin{fill:var(--parch);stroke:var(--ink);stroke-width:1.6}
+.m.v .ring{fill:rgba(163,37,26,.12);stroke:var(--wax);stroke-width:1.5;stroke-dasharray:3 2}
+.m .x{stroke:var(--wax);stroke-width:4.2;stroke-linecap:round}
+.badge{fill:var(--wax)}.badget{font:600 11px "EB Garamond",serif;fill:#fff;text-anchor:middle}
+.cl .seal{fill:var(--parch);stroke:var(--ink);stroke-width:1.6}
+.cl.v .seal{fill:var(--wax);stroke:var(--wax2)}
+.cl text{font:600 14px "EB Garamond",serif;text-anchor:middle;fill:var(--ink)}
+.cl.v text{fill:#fbe9d0}
+.trail{fill:none;stroke:var(--wax);stroke-width:2.6;stroke-dasharray:7 6;stroke-linecap:round;opacity:.9}
+.temp{fill:none;stroke:var(--wax);stroke-width:3}
+.compass path{stroke:var(--ink);stroke-width:1}
+.scale text{font:600 12px "EB Garamond",serif;fill:var(--ink)}
+.cart{position:absolute;z-index:3;top:16px;left:16px;padding:8px 18px 9px;background:var(--parch);border:1.5px solid var(--ink);box-shadow:0 0 0 4px var(--parch),0 0 0 5px rgba(58,35,17,.6),3px 5px 12px rgba(60,30,10,.35);color:var(--ink);pointer-events:none;max-width:calc(100% - 110px)}
+.cart h1{margin:0;font:400 clamp(26px,6vw,38px)/1 "Pirata One",serif;letter-spacing:.02em}
+.cart p{margin:2px 0 0;font-style:italic;font-size:14px;line-height:1.2}
+.zoom{position:absolute;z-index:3;right:16px;bottom:58px;display:flex;flex-direction:column;gap:8px}
+.zoom button,.iconbtn{width:44px;height:44px;border-radius:50%;border:1.5px solid var(--ink);background:var(--parch);color:var(--ink);font:600 22px/1 "EB Garamond",serif;box-shadow:2px 3px 6px rgba(60,30,10,.3)}
+.zoom button.t{font-size:13px}.zoom #zme.on{background:#2a6fd0;color:#fff;border-color:#1d4f96}
+.tag{position:absolute;z-index:3;left:18px;bottom:18px;font-size:13px;font-style:italic;color:var(--ink);background:rgba(236,216,170,.85);padding:2px 10px;border-radius:12px;border:1px solid rgba(58,35,17,.35)}
+.bar{display:flex;gap:8px;padding:8px 8px max(8px,env(safe-area-inset-bottom))}
+.bar button,.bar label{flex:1;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden;cursor:pointer;min-height:52px;border-radius:8px;border:1.5px solid #2a1709;background:#e6cf9c;color:#35210f;font:400 20px/1 "Pirata One",serif;letter-spacing:.03em;box-shadow:inset 0 -3px 0 rgba(58,35,17,.25)}
+.bar .add{background:var(--wax);color:#fbe9d0;border-color:var(--wax2);flex:1.4}
+.bar button:active,.bar label:active{transform:translateY(1px)}
+.banner{position:absolute;z-index:4;left:50%;top:16px;transform:translateX(-50%);background:var(--ink);color:#f3e2bd;padding:10px 14px;border-radius:10px;display:none;gap:12px;align-items:center;width:max-content;max-width:calc(100% - 32px);font-size:16px}
+.banner button{background:none;border:1px solid #f3e2bd;color:#f3e2bd;border-radius:6px;padding:6px 10px;min-height:40px}
+body.picking .banner{display:flex}
+body.picking .sheet,body.picking .cart{display:none}
+.sheet{position:fixed;z-index:10;left:0;right:0;bottom:0;max-height:74dvh;overflow:auto;background:var(--card);color:var(--cardink);border-top:2px solid var(--ink);border-radius:16px 16px 0 0;padding:14px 20px max(22px,env(safe-area-inset-bottom));box-shadow:0 -8px 30px rgba(20,10,0,.45);transform:translateY(105%);transition:transform .28s ease;overscroll-behavior:contain}
+body.sheet-open .sheet{transform:none}
+@media(min-width:820px){.sheet{left:auto;top:12px;right:12px;bottom:84px;width:400px;max-height:none;border:2px solid var(--ink);border-radius:12px;transform:translateX(115%)}}
+.grab{width:46px;height:5px;border-radius:3px;background:var(--line);margin:0 auto 8px}
+.shead{display:flex;align-items:flex-start;gap:10px}
+.shead h2{flex:1;margin:0;font:400 32px/1.05 "Pirata One",serif;text-wrap:balance}
+.close{flex:none;width:44px;height:44px;border-radius:50%;border:1px solid var(--line);background:transparent;font-size:24px;line-height:1}
+.meta{color:var(--muted);font-style:italic;font-size:15px;margin:4px 0 10px}
+.story{margin:10px 0}
+.story::first-letter{font:400 3.1em/.8 "Pirata One",serif;float:left;margin:6px 8px 0 0;color:var(--wax)}
+.tip{font-size:15px;border-left:3px solid var(--wax);padding:4px 0 4px 12px;margin:12px 0;color:var(--muted)}
+.tip b{color:var(--cardink);font-weight:600}
+.strip{display:grid;grid-auto-flow:column;grid-auto-columns:96px;gap:8px;overflow-x:auto;padding:4px 0 8px}
+.strip button{padding:0;border:2px solid var(--ink);background:#fff;height:96px;border-radius:3px;overflow:hidden;box-shadow:2px 3px 0 rgba(58,35,17,.25)}
+.strip img{width:100%;height:100%;object-fit:cover;display:block}
+.acts{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.btn{min-height:46px;padding:8px 16px;border-radius:8px;border:1.5px solid var(--cardink);background:var(--btn);font-size:17px}
+.btn.p{background:var(--wax);border-color:var(--wax2);color:#fbe9d0}
+.btn.q{background:transparent;border-color:var(--line)}
+.btn:disabled{opacity:.45}
+label.f{display:block;font-weight:600;margin:12px 0 4px;font-size:16px}
+select,input[type=text],input[type=datetime-local],textarea{width:100%;min-height:46px;padding:8px 10px;font-size:16px;border:1.5px solid var(--line);border-radius:8px;background:light-dark(#fffaf0,#1e150c)}
+textarea{min-height:70px;resize:vertical}
+.prev{width:100%;max-height:34dvh;object-fit:contain;background:#00000014;border:2px solid var(--ink);border-radius:4px;display:block}
+.loc{margin:10px 0 0;padding:8px 12px;border-radius:8px;font-size:15px;background:light-dark(#efe0b8,#3a2a19)}
+.loc.bad{background:light-dark(#f3d2c2,#4a2018)}
+.list h3{font:400 22px/1.1 "Pirata One",serif;margin:18px 0 6px;color:var(--muted)}
+.row{display:flex;width:100%;align-items:center;gap:10px;text-align:left;padding:10px 4px;min-height:48px;background:none;border:0;border-bottom:1px solid var(--line)}
+.row .mk{flex:none;width:20px;text-align:center;font-weight:600;color:var(--wax)}
+.row .nm{flex:1}
+.row .ct{color:var(--muted);font-size:14px;white-space:nowrap}
+.viewer{position:fixed;inset:0;z-index:20;background:rgba(18,10,4,.94);color:#f3e2bd;display:none;flex-direction:column}
+.viewer.on{display:flex}
+.viewer .img{flex:1;position:relative;min-height:0}
+.viewer .img img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+.viewer .nav{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:64px;border:0;background:rgba(0,0,0,.35);color:#fff;font-size:30px}
+.viewer .nav.l{left:0;border-radius:0 8px 8px 0}.viewer .nav.r{right:0;border-radius:8px 0 0 8px}
+.viewer .info{padding:12px 18px max(16px,env(safe-area-inset-bottom));background:#21150b}
+.viewer .info h4{margin:0;font:400 24px/1.1 "Pirata One",serif}
+.viewer .info p{margin:4px 0}
+.viewer .vtop{position:absolute;top:max(10px,env(safe-area-inset-top));right:10px;z-index:2}
+.viewer .btn{background:#3a2716;color:#f3e2bd;border-color:#8a6a45}
+.viewer .btn.p{background:var(--wax)}
+.viewer select,.viewer textarea{background:#140d06;color:#f3e2bd;border-color:#6b5030}
+.tour{position:fixed;z-index:15;left:0;right:0;bottom:0;display:none;padding:0 10px max(10px,env(safe-area-inset-bottom))}
+body.touring .tour{display:block}
+body.touring .bar,body.touring .zoom,body.touring .tag,body.touring .sheet{display:none}
+.tcard{max-width:560px;margin:0 auto;background:var(--card);border:2px solid var(--ink);border-radius:12px;overflow:hidden;box-shadow:0 8px 30px rgba(20,10,0,.5)}
+.tcard .ph{height:min(22dvh,220px);background:#1b120a;position:relative}
+.tcard .ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity .6s}
+.tcard .day{position:absolute;left:10px;top:10px;background:var(--wax);color:#fbe9d0;font:400 18px/1 "Pirata One",serif;padding:6px 10px;border-radius:4px}
+.tcard .tx{padding:10px 16px 6px}
+.tcard h3{margin:0;font:400 28px/1.05 "Pirata One",serif}
+.tcard p{margin:4px 0;font-size:16px}
+.tctl{display:flex;gap:8px;padding:6px 12px 12px;align-items:center}
+.tctl .sp{flex:1;text-align:center;color:var(--muted);font-size:14px}
+.modal{position:fixed;inset:0;z-index:30;background:rgba(18,10,4,.6);display:none;align-items:center;justify-content:center;padding:20px}
+.modal.on{display:flex}
+.modal .box{background:var(--card);border:2px solid var(--ink);border-radius:12px;padding:18px 20px;max-width:380px;width:100%}
+.toast{position:fixed;z-index:40;left:50%;bottom:90px;transform:translateX(-50%);background:var(--ink);color:#f3e2bd;padding:10px 16px;border-radius:10px;font-size:16px;display:none;max-width:calc(100% - 32px);text-align:center}
+.toast.on{display:block}
+.hint{position:absolute;z-index:3;left:50%;bottom:66px;transform:translateX(-50%) rotate(-1deg);width:min(340px,calc(100% - 40px));background:#f5e7c3;color:#35210f;border:1.5px solid var(--ink);padding:12px 14px 10px;font-size:16px;box-shadow:3px 5px 14px rgba(60,30,10,.4)}
+.hint b{font-family:"Pirata One",serif;font-weight:400;font-size:20px}
+.hint button{float:right;margin-left:8px;background:none;border:0;font-size:22px;width:36px;height:36px;color:#35210f}
+.hidden{display:none!important}
+.era{position:absolute;z-index:3;left:16px;top:104px;display:flex;border:1.5px solid var(--ink);border-radius:20px;overflow:hidden;background:var(--parch);box-shadow:2px 3px 6px rgba(60,30,10,.25)}
+.era button{border:0;background:transparent;color:var(--ink);padding:6px 12px;min-height:40px;font:600 15px "EB Garamond",serif}
+.era button[aria-pressed=true]{background:var(--ink);color:#f3e2bd}
+.legend{position:absolute;z-index:3;left:16px;top:152px;max-width:210px;display:none;flex-direction:column;gap:1px;background:rgba(236,216,170,.94);border:1px solid rgba(58,35,17,.5);padding:5px 9px;font-size:12px;line-height:1.35;color:var(--ink);border-radius:6px;cursor:pointer}
+.legend.min span,.legend.min small{display:none}.legend b{font-weight:600}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.legend small{font-style:italic;opacity:.75;font-size:11px;margin-top:2px}
+body.era30 .legend{display:flex}body:not(.era30) #regions30,body:not(.era30) .h30{display:none}
+.cert{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:-2px 0 4px}
+.cb{font:600 13px "EB Garamond",serif;padding:2px 10px;border-radius:12px;color:#fff}
+.c-C{background:#4f7a3a}.c-P{background:#7a7a2e}.c-T{background:#a0702a}.c-D{background:#a3251a}
+.vv{font-style:italic;color:var(--muted);font-size:15px}
+.ctx{margin:0 0 6px;font-size:13px;color:var(--muted)}
+.jhead{display:flex;justify-content:space-between;align-items:center;background:var(--wax);color:#fbe9d0;padding:8px 14px;font:400 19px/1.1 "Pirata One",serif}
+.v3d{position:absolute;inset:0;z-index:2;background:#e6d3a6;touch-action:none}
+.v3d canvas{position:absolute;inset:0;width:100%!important;height:100%!important;display:block}
+.v3l{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.l3{position:absolute;left:0;top:0;white-space:nowrap;will-change:transform}
+.p3{pointer-events:auto;display:flex;align-items:center;gap:5px;min-height:26px;padding:1px 9px 1px 4px;border-radius:13px;border:1px solid #3a2311;background:rgba(244,230,196,.9);color:#35210f;font:600 13px "EB Garamond",serif;box-shadow:1px 2px 4px rgba(40,20,0,.25)}
+.p3 i{width:10px;height:10px;border-radius:50%;border:2px solid #3a2311;background:#ecd8aa;flex:none}.p3 i.v{background:#a3251a;border-color:#7d180f}
+.k3{font:italic 600 13px "EB Garamond",serif;color:#3a2311;text-shadow:0 0 3px #f4e6c4,0 0 3px #f4e6c4}.k3 small{font-weight:400;opacity:.75}
+.r3{font:400 22px "Pirata One",serif;letter-spacing:.14em;color:rgba(58,35,17,.55)}
+.w3{font:italic 16px "EB Garamond",serif;color:#2f4f5c;text-shadow:0 0 4px #e6d3a6}
+.v3load{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;margin:0;font:400 24px 'Pirata One',serif;color:#3a2311;z-index:1;pointer-events:none}.v3load small{font:italic 15px 'EB Garamond',serif}
+.wsw{position:absolute;left:14px;bottom:96px;z-index:2;display:flex;border:1.5px solid #3a2311;border-radius:20px;overflow:hidden;background:#ecd8aa}.wsw button{border:0;background:transparent;color:#3a2311;padding:6px 12px;min-height:40px;font:600 15px 'EB Garamond',serif}.wsw button[aria-pressed=true]{background:#3a2311;color:#f3e2bd}
+.attr{position:absolute;left:14px;bottom:44px;margin:0;font-size:11px;font-style:italic;color:#3a2311;opacity:.75;max-width:70%}
+body.v3d .hint,body.v3d .tag{display:none!important}
+@media(prefers-reduced-motion:reduce){.sheet{transition:none}.tcard .ph img{transition:none}}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="mapwrap">
+    <svg id="map" aria-label="Mapa-múndi antigo com os lugares da viagem e as suas fotos">
+      <defs>
+        <symbol id="serp" viewBox="0 0 320 130">
+          <path d="M0 104q8-6 16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0" fill="none" stroke="#3a2311" stroke-width="1.6"/>
+          <path d="M40 116q8-5 16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0" fill="none" stroke="#3a2311" stroke-width="1.2" opacity=".55"/>
+          <g fill="none" stroke-linecap="round">
+            <path id="sbody" d="M60 102C52 62 30 50 38 24M95 102C105 40 160 40 170 102M195 102C205 54 245 54 255 102M275 102C282 80 300 76 306 88" stroke="#3a2311" stroke-width="17"/>
+            <path d="M60 102C52 62 30 50 38 24M95 102C105 40 160 40 170 102M195 102C205 54 245 54 255 102M275 102C282 80 300 76 306 88" stroke="#7d9a62" stroke-width="11"/>
+            <path d="M60 102C52 62 30 50 38 24M95 102C105 40 160 40 170 102M195 102C205 54 245 54 255 102M275 102C282 80 300 76 306 88" stroke="#4f6a3e" stroke-width="11" stroke-dasharray="2 6"/>
+          </g>
+          <g fill="#a3251a" stroke="#3a2311" stroke-width="1.4" stroke-linejoin="round">
+            <path d="M116 58L124 36L132 52L140 33L147 52L154 38L158 60"/>
+            <path d="M212 66L219 50L226 62L233 47L240 62L246 68"/>
+            <path d="M304 86l14-9l-3 12l9 6l-17-1z"/>
+            <path d="M28 16l-7-12l11 7l2-11l7 10"/>
+          </g>
+          <path d="M22 28C24 13 44 8 58 14L74 11L63 20L76 25L59 29C51 36 34 36 22 28Z" fill="#7d9a62" stroke="#3a2311" stroke-width="2" stroke-linejoin="round"/>
+          <circle cx="41" cy="19" r="2.8" fill="#3a2311"/>
+          <path d="M75 18l13-4m-13 4l12 5" stroke="#a3251a" stroke-width="2" fill="none" stroke-linecap="round"/>
+        </symbol>
+        <symbol id="whale" viewBox="0 0 230 120">
+          <path d="M0 96q8-6 16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0" fill="none" stroke="#3a2311" stroke-width="1.6"/>
+          <path d="M70 36C66 22 58 14 48 8M70 36C72 20 78 12 88 6M70 36C70 22 70 14 70 4" fill="none" stroke="#4d6b7a" stroke-width="2.4" stroke-linecap="round"/>
+          <path d="M20 84C18 52 80 38 130 48C160 54 176 66 182 78C188 66 202 56 214 54C206 68 206 76 216 90C200 88 190 84 182 82C162 100 60 108 20 84Z" fill="#9c8f74" stroke="#3a2311" stroke-width="2.2" stroke-linejoin="round"/>
+          <path d="M24 82C50 92 100 94 150 84M40 88l6 8M60 92l4 8M80 94l3 8" fill="none" stroke="#3a2311" stroke-width="1.4"/>
+          <circle cx="50" cy="66" r="3.2" fill="#3a2311"/>
+        </symbol>
+        <symbol id="ship" viewBox="0 0 120 120">
+          <path d="M0 100q8-6 16 0t16 0t16 0t16 0t16 0t16 0t16 0t16 0" fill="none" stroke="#3a2311" stroke-width="1.6"/>
+          <path d="M35 80V24M62 80V10M88 80V32" stroke="#3a2311" stroke-width="2.2"/>
+          <path d="M62 10l16 4l-16 5z" fill="#a3251a" stroke="#3a2311" stroke-width="1"/>
+          <g fill="#f4e6c4" stroke="#3a2311" stroke-width="1.8" stroke-linejoin="round">
+            <path d="M22 30Q35 36 48 30V60Q35 66 22 60Z"/><path d="M46 20Q62 28 78 20V62Q62 70 46 62Z"/><path d="M88 34L108 64H88Z"/>
+          </g>
+          <path d="M58 32h8v9h9v8h-9v9h-8v-9h-9v-8h9z" fill="#a3251a"/>
+          <path d="M8 78H112L100 96H22Z" fill="#8b5a2b" stroke="#3a2311" stroke-width="2" stroke-linejoin="round"/>
+          <path d="M14 84H106" stroke="#3a2311" stroke-width="1"/>
+        </symbol>
+      </defs>
+      <g id="world">
+        <path id="sea" class="sea"/>
+        <path id="grat" class="grat"/>
+        <path id="rhumb" class="rhumb"/>
+        <path class="halo h1" style="stroke-width:18px;opacity:.08"/>
+        <path class="halo h2" style="stroke-width:7px;opacity:.14"/>
+        <path id="land" class="land"/>
+        <path id="coast" class="coast"/>
+        <g id="regions30"></g>
+        <path id="lakes" class="lake"/>
+        <path id="huleh" class="lake h30"/>
+        <path id="river" class="river"/>
+        <path id="walls" class="walls"/>
+        <g id="monsters"></g>
+      </g>
+      <g id="deco"></g>
+      <g id="trailG"></g>
+      <g id="labels"></g>
+      <g id="marks"></g>
+    </svg>
+    <header class="cart"><h1>Mapa de Viagem</h1><p>Diário de viagem · Grécia e Terra Santa</p></header>
+    <div class="banner" id="banner"><span>Toque no mapa onde a foto foi tirada</span><button id="pickCancel">Cancelar</button></div>
+    <div class="zoom">
+      <button id="zme" aria-label="Minha localização">◎</button>
+      <button id="z3d" class="t" aria-label="Alternar vista 3D">3D</button>
+      <button id="zin" aria-label="Aproximar">+</button>
+      <button id="zout" aria-label="Afastar">−</button>
+      <button id="zall" class="t" aria-label="Ver tudo">Tudo</button>
+    </div>
+    <div class="era" role="group" aria-label="Época"><button id="eraNow" aria-pressed="true">Hoje</button><button id="era30" aria-pressed="false">Ano 30 d.C.</button></div>
+    <div class="legend" id="legend"></div>
+    <div class="v3d hidden" id="v3d"><div class="v3l" id="v3l"></div><p class="v3load" id="v3load">Carregando o relevo 3D…<br><small>Na primeira vez pode levar alguns segundos.</small></p><div class="wsw" role="group" aria-label="Região"><button data-w="hl" aria-pressed="true">Terra Santa</button><button data-w="gr" aria-pressed="false">Grécia</button></div><p class="attr">Terra Santa: relevo GMRT (CC BY 4.0), grade do Messiah Land Map (Jie Li). Grécia: relevo aproximado sobre a costa real. Altura exagerada 1,8×. Cidades: reconstrução artística aproximada.</p></div>
+    <div class="tag" id="tag">Abrindo o diário…</div>
+    <div class="hint hidden" id="hint"><button id="hintX" aria-label="Fechar dica">×</button><b>Como usar</b><br>Use dois dedos para aproximar o mundo até as ruas. Toque nos círculos para ler a história de cada lugar. Em <i>Adicionar foto</i>, cada foto vira um X vermelho no mapa, e a <i>Jornada</i> conta a viagem parada por parada.</div>
+  </div>
+  <nav class="bar">
+    <label class="add" id="addBtn">Adicionar foto<input type="file" id="file" accept="image/*" multiple aria-label="Adicionar foto" style="position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font-size:0"></label>
+    <button id="listBtn">Locais</button>
+    <button id="tourBtn">Jornada</button>
+  </nav>
+</div>
+<section class="sheet" id="sheet" aria-live="polite"></section>
+<div class="viewer" id="viewer"></div>
+<div class="tour" id="tour"></div>
+<div class="modal" id="modal"><div class="box" id="mbox"></div></div>
+<div class="toast" id="toast"></div>
+
+<script>
+{
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const svg=$('#map'),world=$('#world');
+
+/* ---------- Geografia: mapa-múndi em projeção de Mercator ---------- */
+const K=829,LON0=29,LAT0=35,RAD=Math.PI/180;
+const my=lat=>Math.log(Math.tan(Math.PI/4+Math.max(-85,Math.min(85,lat))*RAD/2))/RAD;
+const MY0=my(LAT0);
+const P=(lat,lon)=>[(lon-LON0)*K,(MY0-my(lat))*K];
+const unP=(X,Y)=>[(2*Math.atan(Math.exp((MY0-Y/K)*RAD))-Math.PI/2)/RAD,X/K+LON0];
+const GALILEE=[[32.885,35.57],[32.87,35.62],[32.82,35.65],[32.74,35.64],[32.705,35.59],[32.73,35.555],[32.79,35.535],[32.84,35.52],[32.87,35.535]];
+const DEADSEA=[[31.77,35.55],[31.72,35.47],[31.60,35.44],[31.46,35.395],[31.38,35.39],[31.30,35.40],[31.18,35.36],[31.05,35.40],[31.10,35.47],[31.25,35.53],[31.40,35.55],[31.55,35.57],[31.70,35.58]];
+const JORDAN_N=[[33.15,35.62],[32.97,35.62],[32.89,35.60]];
+const JORDAN_S=[[32.705,35.575],[32.62,35.56],[32.5,35.575],[32.35,35.55],[32.2,35.545],[32.05,35.52],[31.9,35.54],[31.77,35.555]];
+const WALLS=[[31.7765,35.2276],[31.7800,35.2268],[31.7815,35.2302],[31.7818,35.2337],[31.7816,35.2368],[31.7786,35.2373],[31.7753,35.2373],[31.7745,35.2338],[31.7727,35.2299],[31.7733,35.2275]];
+const pathOf=(a,z)=>'M'+a.map(([la,lo])=>P(la,lo).map(n=>n.toFixed(1)).join(' ')).join('L')+(z?'Z':'');
+$('#sea').setAttribute('d',pathOf([[85,-200],[85,200],[-85,200],[-85,-200]],1));
+$('#lakes').setAttribute('d',pathOf(GALILEE,1)+pathOf(DEADSEA,1));
+$('#river').setAttribute('d',pathOf(JORDAN_N)+pathOf(JORDAN_S));
+$('#walls').setAttribute('d',pathOf(WALLS,1));
+{ /* meridianos, paralelos, equador e trópicos */
+  let g='';for(let lo=-180;lo<=180;lo+=30)g+=pathOf([[80,lo],[-80,lo]]);for(const la of [-60,-30,30,60])g+=pathOf([[la,-180],[la,180]]);
+  $('#grat').setAttribute('d',g);
+  const eq=document.createElementNS('http://www.w3.org/2000/svg','path');eq.setAttribute('class','grat eq');eq.setAttribute('d',pathOf([[0,-180],[0,180]])+pathOf([[23.44,-180],[23.44,180]])+pathOf([[-23.44,-180],[-23.44,180]]));$('#grat').after(eq);
+}
+/* rosas dos ventos com linhas de rumo, serpentes e navios (desenhados no próprio mapa) */
+const ROSES=[[12,-38,70],[-18,74,60],[8,-150,75]];
+{
+  let rh='',ro='';
+  for(const [la,lo,len] of ROSES){const [cx,cy]=P(la,lo);const L=len*K;
+    for(let i=0;i<32;i++){const a=i*Math.PI/16;rh+=`M${cx.toFixed(0)} ${cy.toFixed(0)}l${(Math.cos(a)*L).toFixed(0)} ${(Math.sin(a)*L).toFixed(0)}`}
+    const r=3.2*K;let st='';
+    for(let i=0;i<16;i++){const a=i*Math.PI/8-Math.PI/2,Ln=i%4===0?r:i%2?r*.38:r*.62,ri=r*.13,a1=a-Math.PI/16,a2=a+Math.PI/16;
+      const p=[cx+Math.cos(a)*Ln,cy+Math.sin(a)*Ln],q1=[cx+Math.cos(a1)*ri,cy+Math.sin(a1)*ri],q2=[cx+Math.cos(a2)*ri,cy+Math.sin(a2)*ri];
+      const dark=i%4===0?'#3a2311':i%2?'#7d9a62':'#a3251a';
+      st+=`<path d="M${cx} ${cy}L${q1}L${p}Z" fill="${dark}"/><path d="M${cx} ${cy}L${q2}L${p}Z" fill="#ecd8aa" stroke="${dark}" stroke-width="${(r*.01).toFixed(0)}"/>`}
+    ro+=`<circle cx="${cx}" cy="${cy}" r="${r*1.05}" fill="none" stroke="#3a2311" stroke-width="${(r*.02).toFixed(0)}"/><circle cx="${cx}" cy="${cy}" r="${r*.9}" fill="none" stroke="#3a2311" stroke-width="${(r*.008).toFixed(0)}"/>${st}`}
+  $('#rhumb').setAttribute('d',rh);
+  const put=(id,la,lo,wDeg,ar,flip)=>{const [x,y]=P(la,lo),w=wDeg*K,h=w*ar;return `<use href="#${id}" x="${(x-w/2).toFixed(0)}" y="${(y-h/2).toFixed(0)}" width="${w.toFixed(0)}" height="${h.toFixed(0)}"${flip?` transform="translate(${(2*x).toFixed(0)} 0) scale(-1 1)"`:''}/>`};
+  const tx=(t,la,lo,deg)=>{const [x,y]=P(la,lo);return `<text x="${x.toFixed(0)}" y="${y.toFixed(0)}" text-anchor="middle" style="font:italic 400 ${(deg*K).toFixed(0)}px 'EB Garamond',serif;fill:#3a2311;opacity:.7">${t}</text>`};
+  $('#monsters').innerHTML=ro+put('serp',47,-36,22,130/320)+put('serp',-8,-128,30,130/320,1)+put('serp',-30,82,22,130/320,1)+put('whale',-50,-4,16,120/230)+put('whale',52,-170,16,120/230,1)
+    +put('ship',24,-26,9,1)+put('ship',-12,-30,7,1,1)+put('ship',-5,62,8,1)+tx('Aqui há serpentes',-24,-128,2.6)+tx('Terra Austral Incógnita',-73,30,4);
+}
+/* contornos reais dos continentes (Natural Earth), em três níveis de detalhe */
+let LAND=null,lod=-1;
+fetch('land.json').then(r=>r.json()).then(j=>{
+  const dec=(rings,d)=>{const f=10**d;let s='',l='';for(const a of rings){
+      const xs=[],ys=[];let x=0,y=0,off=0,px=null;for(let i=0;i<a.length;i+=2){x+=a[i];y+=a[i+1];if(px!==null){if(x-px>180*f)off-=360*f;else if(px-x>180*f)off+=360*f}px=x;xs.push(x+off);ys.push(y)}
+      {const x0=a[0];if(x0-px>180*f)off-=360*f;else if(px-x0>180*f)off+=360*f}
+      const raw=off!==0;if(raw){x=0;for(let i=0,j=0;i<a.length;i+=2,j++){x+=a[i];xs[j]=x}}
+      else{const m=xs.reduce((p,c)=>p+c,0)/xs.length;const sh=Math.round(m/(360*f))*360*f;if(sh)for(let j=0;j<xs.length;j++)xs[j]-=sh}
+      let pp=null;for(let j=0;j<xs.length;j++){const [X,Y]=P(ys[j]/f,xs[j]/f);const pt=X.toFixed(0)+' '+Y.toFixed(0);s+=(j?'L':'M')+pt;l+=(j&&!(raw&&Math.abs(xs[j]-pp)>170*f))?'L'+pt:'M'+pt;pp=xs[j]}
+      s+='Z';if(!raw)l+='Z'}return [s,l]};
+  LAND={bb:j.bb,d:j.l.map((r,i)=>dec(r,j.d[i]))};lod=-1;schedule();
+}).catch(()=>setTag('Não consegui carregar os continentes'));
+function setLod(){
+  if(!LAND)return;const [la,lo]=fromS(W/2,H/2),bb=LAND.bb;
+  const L=cam.k>=.15&&lo>bb[0]+2&&lo<bb[2]-2&&la>bb[1]+2&&la<bb[3]-2?2:cam.k>=.012?1:0;
+  if(L===lod)return;lod=L;const [d,ln]=LAND.d[L];
+  document.querySelectorAll('.halo').forEach(h=>h.setAttribute('d',ln));$('#land').setAttribute('d',d);$('#coast').setAttribute('d',ln);
+}
+
+/* ---------- Locais e histórias ---------- */
+const OC=30,JR=14,ST=8;
+const SITES=[
+{id:'muro',n:'Muro das Lamentações',r:'Jerusalém',lat:31.7767,lon:35.2345,z:OC,e:'Século I a.C.',s:'É um trecho do muro de contenção que sustentava a grande esplanada do Templo, ampliada por Herodes, o Grande, a partir de 19 a.C. Quando os romanos destruíram o Segundo Templo, no ano 70, este paredão sobreviveu e virou o lugar de oração mais sagrado do judaísmo. Há séculos, peregrinos dobram bilhetes com pedidos e os encaixam entre as pedras.',t:'Homens e mulheres rezam em áreas separadas; ombros e joelhos cobertos. Na sexta ao pôr do sol, a chegada do Shabat aqui é inesquecível.'},
+{id:'templo',n:'Domo da Rocha',r:'Jerusalém',lat:31.7780,lon:35.2354,z:OC,e:'691 d.C.',s:'A cúpula dourada foi concluída por volta de 691 pelo califa Abd al-Malik, sobre a rocha que a tradição judaica liga ao Monte Moriá e ao lugar do Templo. Para o islã, é dali que Maomé fez a sua Viagem Noturna; ao lado fica a Mesquita de Al-Aqsa. É um dos monumentos islâmicos mais antigos que ainda estão de pé.',t:'Visitantes não muçulmanos entram na esplanada só em horários restritos, pela passarela junto ao Muro; o interior das mesquitas é fechado a eles.'},
+{id:'sepulcro',n:'Santo Sepulcro',r:'Jerusalém',lat:31.7784,lon:35.2296,z:OC,e:'335 d.C.',s:'O imperador Constantino mandou erguer a igreja, consagrada em 335, sobre o lugar que a tradição aponta como o Gólgota e o túmulo de Jesus. Destruída em 1009 e reconstruída, hoje é dividida entre várias igrejas cristãs. Por um antigo acordo, duas famílias muçulmanas guardam a chave e abrem a porta todas as manhãs.',t:'Chegue cedo para ver a Edícula sem fila longa.'},
+{id:'dolorosa',n:'Via Dolorosa',r:'Jerusalém',lat:31.7797,lon:35.2325,z:OC,e:'Tradição medieval',s:'Pelas ruelas do Bairro Muçulmano corre o caminho que a tradição cristã associa aos passos de Jesus até a cruz, marcado por 14 estações. O roteiro foi se firmando ao longo dos séculos, e os franciscanos o consolidaram. As últimas estações ficam dentro do Santo Sepulcro.',t:'Às sextas à tarde os franciscanos fazem a procissão, a partir da Porta dos Leões.'},
+{id:'torre',n:'Torre de Davi',r:'Jerusalém',lat:31.7762,lon:35.2283,z:OC,e:'Séculos I a.C. a XVII',s:'A cidadela junto à Porta de Jaffa guarda a base de uma torre do palácio de Herodes. O nome surgiu de um engano dos bizantinos, que acharam que ali fosse o palácio do rei Davi; o minarete otomano do século XVII acabou herdando o título. Hoje abriga o Museu da História de Jerusalém.',t:'À noite há um espetáculo de luz projetado nas muralhas.'},
+{id:'cenaculo',n:'Cenáculo e Monte Sião',r:'Jerusalém',lat:31.7716,lon:35.2290,z:OC,e:'Séculos XII a XIV',s:'No Monte Sião, uma sala gótica do século XIV é venerada como o lugar da Última Ceia. No andar de baixo fica o túmulo que a tradição atribui ao rei Davi, e logo ao lado se ergue a Abadia da Dormição. Poucos lugares reúnem tantas camadas de fé num só quarteirão.',t:'Saia pela Porta de Sião e repare nas marcas de bala de 1948 na pedra.'},
+{id:'getsemani',n:'Jardim do Getsêmani',r:'Jerusalém',lat:31.7794,lon:35.2397,z:OC,e:'Século I',s:'Ao pé do Monte das Oliveiras, este jardim é lembrado como o lugar onde Jesus orou na noite em que foi preso. Algumas das oliveiras retorcidas foram datadas do século XII. Ao lado está a Basílica da Agonia, de 1924, também chamada Igreja de Todas as Nações.',t:'Combine com a descida a pé do Monte das Oliveiras.'},
+{id:'oliveiras',n:'Monte das Oliveiras',r:'Jerusalém',lat:31.7784,lon:35.2440,z:JR,e:'Há 3.000 anos',s:'Do alto do monte se tem a vista clássica da Cidade Velha, com o Domo da Rocha brilhando no meio. A encosta abriga um cemitério judaico em uso há cerca de três mil anos. A tradição cristã situa aqui a Ascensão de Jesus.',t:'Vá no fim da tarde, quando o sol bate de frente nas muralhas.'},
+{id:'davi',n:'Cidade de Davi',r:'Jerusalém',lat:31.7735,lon:35.2355,z:OC,e:'Século X a.C.',s:'Fora das muralhas atuais, nesta crista ao sul, fica o núcleo mais antigo de Jerusalém. O ponto alto da visita é o Túnel de Ezequias, um canal de cerca de 530 metros escavado na rocha no século VIII a.C. para levar água para dentro da cidade.',t:'Dá para atravessar o túnel com água pelos joelhos: leve sandália e lanterna.'},
+{id:'yadvashem',n:'Yad Vashem',r:'Jerusalém',lat:31.7740,lon:35.1753,z:JR,e:'1953',s:'Criado em 1953, é o memorial oficial de Israel às vítimas do Holocausto. O museu atual, de 2005, é um longo prisma de concreto desenhado por Moshe Safdie que termina num terraço aberto para as colinas. Um lugar para ir devagar.',t:'Entrada gratuita; fechado aos sábados. Reserve umas três horas.'},
+{id:'mahane',n:'Mercado Mahane Yehuda',r:'Jerusalém',lat:31.7849,lon:35.2122,z:JR,e:'Fim do século XIX',s:'Começou como uma feira ao ar livre no fim do século XIX e hoje é o grande mercado de Jerusalém: especiarias, halva, frutas secas e padarias. À noite, as bancas fecham e o lugar vira uma rua de bares.',t:'Na sexta antes do Shabat fica lotado e fecha cedo; no sábado fica fechado.'},
+{id:'natividade',n:'Basílica da Natividade',r:'Belém',lat:31.7043,lon:35.2075,z:JR,e:'Século IV',s:'Uma das igrejas mais antigas do mundo ainda em uso, erguida no século IV por Constantino e refeita por Justiniano no século VI sobre a gruta onde a tradição situa o nascimento de Jesus. Para entrar, todos se curvam: a Porta da Humildade tem pouco mais de um metro de altura.',t:'Belém fica na Cisjordânia, e carros alugados em Israel em geral não têm seguro na Área A. Muitos visitantes vão com guia ou táxi local.'},
+{id:'jaffa',n:'Jaffa Antiga',r:'Tel Aviv-Yafo',lat:32.0546,lon:34.7520,z:ST,e:'Milênios',s:'Jaffa, a Jope da Bíblia, é um dos portos mais antigos do mundo. Daqui, conta o livro de Jonas, o profeta embarcou fugindo de sua missão, e foi aqui que Pedro se hospedou na casa de Simão, o curtidor. A Torre do Relógio otomana, do início do século XX, marca a entrada da cidade velha.',t:'Suba ao parque do topo da colina no pôr do sol, com Tel Aviv inteira à frente.'},
+{id:'independencia',n:'Salão da Independência',r:'Tel Aviv-Yafo',lat:32.0631,lon:34.7709,z:ST,e:'1948',s:'Nesta casa do Boulevard Rothschild, antiga residência do primeiro prefeito de Tel Aviv, Meir Dizengoff, David Ben-Gurion leu a declaração de independência de Israel em 14 de maio de 1948.',t:'Confira se está aberto antes de ir: o prédio passou por uma longa reforma.'},
+{id:'bauhaus',n:'Cidade Branca',r:'Tel Aviv-Yafo',lat:32.0750,lon:34.7745,z:ST,e:'Anos 1930',s:'Tel Aviv tem cerca de 4.000 prédios no estilo internacional, inspirado na Bauhaus, construídos sobretudo nos anos 1930 por arquitetos que fugiam da Europa. Varandas curvas, linhas limpas e paredes brancas renderam à cidade o título de Patrimônio Mundial da UNESCO em 2003.',t:'Caminhe pela Rua Bialik e pela Praça Dizengoff.'},
+{id:'nevetzedek',n:'Neve Tzedek',r:'Tel Aviv-Yafo',lat:32.0610,lon:34.7650,z:ST,e:'1887',s:'Fundado em 1887, foi o primeiro bairro judaico construído fora das muralhas de Jaffa, anos antes de Tel Aviv existir. Hoje as casinhas restauradas abrigam ateliês, cafés e lojas.',t:'Bom para um café no fim da tarde, a poucos passos da praia.'},
+{id:'cesareia',n:'Cesareia Marítima',r:'Costa e Norte',lat:32.4996,lon:34.8915,z:ST,e:'22–10 a.C.',s:'Herodes construiu aqui uma cidade romana inteira com um porto artificial, o Sebastos, entre 22 e 10 a.C. Cesareia virou a capital da província; em 1961, no teatro, arqueólogos acharam uma pedra com o nome de Pôncio Pilatos. O hipódromo e o aqueduto à beira-mar ainda estão lá.',t:'O aqueduto na praia ao norte é ótimo para fotos ao entardecer.'},
+{id:'bahai',n:'Jardins Bahá’í',r:'Costa e Norte',lat:32.8143,lon:34.9871,z:ST,e:'Século XX',s:'No Monte Carmelo, em Haifa, 19 terraços de jardins descem até o Santuário do Báb, de cúpula dourada, o coração do centro mundial da fé bahá’í. O conjunto é Patrimônio Mundial da UNESCO desde 2008.',t:'Há visitas guiadas gratuitas; roupa discreta.'},
+{id:'akko',n:'Acre (Akko)',r:'Costa e Norte',lat:32.9206,lon:35.0690,z:ST,e:'Cruzadas',s:'Capital dos cruzados por quase um século, Acre guarda debaixo da cidade otomana os enormes salões góticos dos Cavaleiros Hospitalários. Suas muralhas resistiram ao cerco de Napoleão em 1799. A cidade velha é Patrimônio Mundial da UNESCO.',t:'Termine no porto com peixe fresco.'},
+{id:'roshhanikra',n:'Rosh HaNikra',r:'Costa e Norte',lat:33.0930,lon:35.1048,z:ST,e:'Natureza',s:'No extremo norte da costa, o mar escavou grutas no penhasco de calcário branco, onde a água fica azul-turquesa. Um teleférico curto e íngreme desce até elas, bem junto à fronteira com o Líbano.',t:'Verifique antes se está aberto: por ficar na fronteira, pode fechar por segurança.'},
+{id:'nazare',n:'Basílica da Anunciação',r:'Galileia',lat:32.7021,lon:35.2978,z:ST,e:'1969',s:'No centro de Nazaré, esta basílica de 1969, uma das maiores igrejas do Oriente Médio, foi construída sobre a gruta onde a tradição situa o anúncio do anjo Gabriel a Maria. Nas paredes do pátio há mosaicos de Nossa Senhora enviados por países do mundo inteiro, incluindo o Brasil.',t:'Procure o painel brasileiro no pátio.'},
+{id:'cafarnaum',n:'Cafarnaum',r:'Galileia',lat:32.8807,lon:35.5752,z:ST,e:'Século I',s:'À beira do Mar da Galileia, a vila de pescadores foi a base de Jesus durante o seu ministério. Dá para ver as ruínas de uma sinagoga de calcário branco dos séculos IV e V e, sob uma igreja moderna, a casa que a tradição atribui a Pedro.',t:'Use roupa que cubra ombros e joelhos.'},
+{id:'bemaventurancas',n:'Monte das Bem-Aventuranças',r:'Galileia',lat:32.8814,lon:35.5563,z:ST,e:'1938',s:'A colina acima do lago é ligada pela tradição ao Sermão da Montanha. A igreja de 1938, de Antonio Barluzzi, é octogonal: um lado para cada bem-aventurança. Dos jardins se vê o Mar da Galileia inteiro.',t:'Os jardins são o lugar ideal para uma pausa silenciosa.'},
+{id:'tabgha',n:'Tabgha',r:'Galileia',lat:32.8733,lon:35.5492,z:ST,e:'Século V',s:'Na Igreja da Multiplicação, um mosaico bizantino do século V, com um cesto de pães entre dois peixes, marca o lugar onde a tradição situa o milagre dos pães. Bem perto, a Igreja do Primado de Pedro fica à beira da água.',t:'Dá para molhar os pés no lago junto ao Primado de Pedro.'},
+{id:'yardenit',n:'Yardenit (Rio Jordão)',r:'Galileia',lat:32.7106,lon:35.5711,z:ST,e:'Desde 1981',s:'Onde o Jordão sai do Mar da Galileia, peregrinos de túnica branca entram no rio para renovar o batismo. O local tradicional do batismo de Jesus, Qasr al-Yahud, fica mais ao sul, perto de Jericó; Yardenit nasceu como alternativa mais tranquila.',t:'Há túnicas para alugar e vestiários no local.'},
+{id:'tabor',n:'Monte Tabor',r:'Galileia',lat:32.6870,lon:35.3903,z:ST,e:'1924',s:'O monte arredondado que se ergue sozinho no vale é o lugar tradicional da Transfiguração. No topo, a Basílica da Transfiguração, de 1924, é outra obra de Antonio Barluzzi, e a vista alcança a Galileia inteira.',t:'A estrada até o topo é estreita e cheia de curvas fechadas.'},
+{id:'megido',n:'Tel Megido',r:'Galileia',lat:32.5850,lon:35.1846,z:ST,e:'Milênios',s:'Nesta colina se empilham cerca de 20 cidades construídas umas sobre as outras ao longo de milênios. Do nome Har Megido, o monte de Megido, vem a palavra Armagedom, do Apocalipse. É Patrimônio Mundial da UNESCO.',t:'Desça pelo túnel de água antigo no final da visita.'},
+{id:'massada',n:'Massada',r:'Mar Morto e deserto',lat:31.3156,lon:35.3536,z:ST,e:'73 d.C.',s:'No alto deste rochedo, Herodes construiu palácios suspensos sobre o deserto. Por volta de 73 d.C., rebeldes judeus resistiram ali ao cerco romano; segundo o historiador Flávio Josefo, preferiram a morte à escravidão. A rampa de cerco romana ainda se vê na encosta oeste.',t:'A Trilha da Serpente abre antes do amanhecer; o teleférico é a opção sem esforço. Leve muita água.'},
+{id:'eingedi',n:'Ein Gedi',r:'Mar Morto e deserto',lat:31.4630,lon:35.3880,z:ST,e:'Bíblia',s:'Um oásis de cascatas e piscinas naturais no meio do deserto. A Bíblia conta que Davi se escondeu de Saul nestas cavernas, e até hoje íbex e hírax circulam pelas trilhas.',t:'A trilha do Nahal David até a cascata é curta e fácil.'},
+{id:'qumran',n:'Qumran',r:'Mar Morto e deserto',lat:31.7413,lon:35.4593,z:ST,e:'1947',s:'Em 1947, um pastor beduíno entrou numa caverna destes penhascos e achou jarros com rolos antigos: os Manuscritos do Mar Morto, as cópias mais antigas conhecidas de textos bíblicos. As ruínas do povoado que os guardou estão logo abaixo das grutas.',t:'Pela manhã o calor é bem menor.'},
+{id:'marmorto',n:'Mar Morto (Ein Bokek)',r:'Mar Morto e deserto',lat:31.2000,lon:35.3630,z:ST,e:'Natureza',s:'A margem do Mar Morto fica a mais de 430 metros abaixo do nível do mar, o ponto mais baixo da superfície da Terra. A água tem tanto sal que o corpo boia sozinho, e a lama escura é famosa pelo efeito na pele.',t:'Não se barbeie antes, não mergulhe a cabeça e use chinelo: os cristais de sal cortam.'}
+];
+SITES.push(
+{id:'areopago',n:'Areópago (Colina de Marte)',r:'Atenas',pa:1,lat:37.9722,lon:23.7232,z:OC,e:'Atos 17 · por volta do ano 50',s:'Foi nesta rocha, onde se reunia o antigo conselho de Atenas, que os filósofos levaram Paulo para ouvir a sua "nova doutrina". Ele partiu de um altar que tinha visto na cidade, dedicado "ao Deus desconhecido", e anunciou o Deus em quem "vivemos, nos movemos e existimos". Alguns zombaram, outros quiseram ouvi-lo de novo; Dionísio, membro do conselho, e uma mulher chamada Dâmaris passaram a crer (Atos 17:22-34).',t:'Ao pé da escadaria há uma placa de bronze com o discurso de Paulo em grego. A rocha é polida e escorregadia: vá de tênis.'},
+{id:'agora',n:'Ágora Antiga',r:'Atenas',pa:1,lat:37.9747,lon:23.7224,z:OC,e:'Atos 17 · séculos VI a.C. a I d.C.',s:'Nesta praça, coração da vida pública, Paulo discutia todos os dias com quem passasse, além de falar na sinagoga com judeus e gregos tementes a Deus. Aqui filósofos epicureus e estoicos o chamaram de "tagarela" e o levaram ao Areópago (Atos 17:17-19). Quatro séculos antes, Sócrates fazia as suas perguntas nestas mesmas pedras.',t:'Veja o Templo de Hefesto, um dos templos gregos mais inteiros, e o museu na Stoa de Átalo, reconstruída nos anos 1950.'},
+{id:'acropole',n:'Acrópole e Partenon',r:'Atenas',pa:1,lat:37.9715,lon:23.7267,z:OC,e:'Século V a.C.',s:'O Partenon foi erguido entre 447 e 432 a.C., no tempo de Péricles, em honra de Atena, a protetora da cidade. Quando Paulo chegou, a colina estava coberta de templos e estátuas, e Atos conta que ele se indignou ao ver a cidade "cheia de ídolos" (Atos 17:16). Era esta a vista diante dele quando discursou no Areópago, logo abaixo.',t:'Compre o ingresso online e entre na abertura, antes do calor e das excursões.'},
+{id:'museuacropole',n:'Museu da Acrópole',r:'Atenas',lat:37.9685,lon:23.7285,z:OC,e:'2009',s:'Inaugurado em 2009, o museu foi construído sobre escavações de um bairro antigo, que se veem pelo piso de vidro. No último andar, a galeria do Partenon tem o tamanho exato do templo: os frisos originais que ficaram em Atenas aparecem ao lado de cópias em gesso das peças levadas para Londres.',t:'O terraço do café tem vista para a Acrópole.'},
+{id:'zeus',n:'Templo de Zeus Olímpico',r:'Atenas',lat:37.9693,lon:23.7331,z:JR,e:'Século VI a.C. a 132 d.C.',s:'Começado no século VI a.C., só foi concluído pelo imperador Adriano, mais de 600 anos depois. Das 104 colunas coríntias de quase 17 metros, restam 15 de pé. Ao lado fica o Arco de Adriano, que marcava a passagem da cidade antiga para a nova cidade romana.',t:'Com pouco tempo, dá para ver bem pela grade.'},
+{id:'plaka',n:'Plaka e Anafiotika',r:'Atenas',lat:37.9725,lon:23.7300,z:OC,e:'Bairro histórico',s:'O bairro mais antigo de Atenas se espalha pela encosta norte da Acrópole, com ruelas, casas neoclássicas e tavernas. No alto fica Anafiotika, um cantinho de casas brancas construído no século XIX por pedreiros vindos da ilha de Anafi, que parece uma vila das Cíclades.',t:'Suba até Anafiotika no fim da tarde.'},
+{id:'panatenaico',n:'Estádio Panatenaico',r:'Atenas',lat:37.9683,lon:23.7410,z:JR,e:'1896',s:'Construído inteiro em mármore sobre um estádio da Antiguidade, recebeu os primeiros Jogos Olímpicos modernos, em 1896. É aqui que a chama olímpica, acesa em Olímpia, é entregue aos organizadores de cada nova edição dos Jogos.',t:'Dá para correr na pista; o ingresso inclui audioguia.'},
+{id:'licabeto',n:'Monte Licabeto',r:'Atenas',lat:37.9819,lon:23.7437,z:JR,e:'Mirante',s:'O ponto mais alto do centro de Atenas, com 277 metros, tem no topo a capelinha branca de São Jorge. Dali se vê a cidade inteira, a Acrópole e, nos dias claros, o mar até o Pireu.',t:'Suba de funicular e desça a pé no pôr do sol.'},
+{id:'pireu',n:'Pireu',r:'Atenas',pa:1,lat:37.9420,lon:23.6465,z:12,e:'Porto desde o século V a.C.',s:'É o porto de Atenas desde a Antiguidade; na época clássica, as Longas Muralhas o ligavam à cidade. Atos conta que os irmãos levaram Paulo de Bereia até o mar e o acompanharam até Atenas (Atos 17:14-15). Se ele fez a viagem de barco, é provável que tenha desembarcado por aqui.',t:'Daqui saem as balsas para as ilhas gregas.'},
+{id:'sunio',n:'Cabo Sunião',r:'Arredores de Atenas',lat:37.6502,lon:24.0246,z:10,e:'Século V a.C.',s:'Na ponta da Ática, o Templo de Poseidon, de cerca de 440 a.C., domina o mar Egeu do alto de um penhasco. Os navegantes antigos sabiam que Atenas estava perto quando avistavam as suas colunas. Lord Byron gravou o próprio nome numa delas.',t:'A estrada pela costa leva cerca de uma hora; chegue para o pôr do sol.'},
+{id:'corinto',n:'Corinto Antiga',r:'Arredores de Atenas',pa:1,lat:37.9060,lon:22.8790,z:12,e:'Atos 18 · por volta dos anos 50 a 52',s:'Saindo de Atenas, Paulo seguiu para Corinto, onde fez tendas com Áquila e Priscila e ficou um ano e meio (Atos 18:1-11). Nas ruínas ainda se vê o Bema, a tribuna onde ele foi levado diante do procônsul Gálio (Atos 18:12-17). Aos cristãos desta cidade ele escreveria as duas cartas aos Coríntios.',t:'Fica a uns 80 km de Atenas pela autoestrada; pare no Canal de Corinto no caminho.'}
+);
+const REGIONS=['Atenas','Arredores de Atenas','Jerusalém','Belém','Tel Aviv-Yafo','Costa e Norte','Samaria','Galileia','Mar Morto e deserto','Egito'];
+const LABELS=[
+{n:'OCEANO ATLÂNTICO',lat:37,lon:-47,a:0,b:.03,c:'w'},
+{n:'OCEANO ATLÂNTICO',lat:-37,lon:-24,a:0,b:.03,c:'w'},
+{n:'MAR DO SUL',lat:12,lon:-135,a:0,b:.03,c:'w'},
+{n:'OCEANO ÍNDICO',lat:-5,lon:72,a:0,b:.03,c:'w'},
+{n:'LINHA EQUINOCIAL',lat:1.2,lon:-14,a:0,b:.025,c:'q'},
+{n:'TRÓPICO DE CÂNCER',lat:24.6,lon:-58,a:0,b:.025,c:'q'},
+{n:'TRÓPICO DE CAPRICÓRNIO',lat:-22.3,lon:-2,a:0,b:.025,c:'q'},
+{n:'EUROPA',lat:51,lon:15,a:0,b:.012,c:'r'},
+{n:'ÁFRICA',lat:6,lon:20,a:0,b:.012,c:'r'},
+{n:'ÁSIA',lat:52,lon:90,a:0,b:.012,c:'r'},
+{n:'AMÉRICA',lat:42,lon:-100,a:0,b:.012,c:'r'},
+{n:'BRASIL',lat:-9,lon:-53,a:0,b:.03,c:'r'},
+{n:'AUSTRÁLIA',lat:-25,lon:134,a:0,b:.012,c:'r'},
+{n:'Lisboa',lat:38.72,lon:-9.14,a:.003,b:.6,c:'c',d:1},
+{n:'Roma',lat:41.9,lon:12.5,a:.004,b:.6,c:'c',d:1},
+{n:'Istambul',lat:41.01,lon:28.98,a:.004,b:.6,c:'c',d:1},
+{n:'Cairo',lat:30.04,lon:31.24,a:.004,b:.6,c:'c',d:1},
+{n:'Rio de Janeiro',lat:-22.9,lon:-43.2,a:.003,b:.6,c:'c',d:1},
+{n:'São Paulo',lat:-23.55,lon:-46.63,a:.004,b:.6,c:'c',d:1},
+{n:'MAR MEDITERRÂNEO',lat:34.2,lon:18,a:.006,b:.45,c:'w'},
+{n:'MAR MEDITERRÂNEO',lat:32.35,lon:34.25,a:.45,b:2.2,c:'w'},
+{n:'MAR EGEU',lat:38.9,lon:25.2,a:.01,b:1,c:'w'},
+{n:'MAR JÔNICO',lat:37.0,lon:20.3,a:.012,b:1,c:'w'},
+{n:'Golfo Sarônico',lat:37.72,lon:23.48,a:.7,b:6,c:'w'},
+{n:'Mar da Galileia',lat:32.80,lon:35.70,a:.25,b:5,c:'w'},
+{n:'Mar Morto',lat:31.45,lon:35.66,a:.2,b:5,c:'w'},
+{n:'Golfo de Ácaba',lat:29.0,lon:34.55,a:.1,b:3,c:'w'},
+{n:'GRÉCIA',lat:39.7,lon:22.0,a:.008,b:.6,c:'r'},
+{n:'PELOPONESO',lat:37.45,lon:22.25,a:.06,b:1.2,c:'r'},
+{n:'ÁTICA',lat:38.2,lon:23.85,a:.35,b:2.5,c:'r'},
+{n:'ÁSIA MENOR',lat:38.5,lon:31.0,a:.008,b:.6,c:'r'},
+{n:'EGITO',lat:30.0,lon:29.5,a:.008,b:.6,c:'r'},
+{n:'CRETA',lat:35.27,lon:24.9,a:.02,b:1,c:'r'},
+{n:'CHIPRE',lat:35.05,lon:33.3,a:.02,b:1,c:'r'},
+{n:'GALILEIA',lat:33.0,lon:35.30,a:.15,b:1.4,c:'r'},
+{n:'SAMARIA',lat:32.25,lon:35.22,a:.15,b:1.4,c:'r'},
+{n:'JUDEIA',lat:31.55,lon:35.10,a:.15,b:1.4,c:'r'},
+{n:'NEGUEV',lat:30.6,lon:34.85,a:.1,b:1.4,c:'r'},
+{n:'SINAI',lat:29.6,lon:33.9,a:.06,b:1.2,c:'r'},
+{n:'Atenas',lat:37.9900,lon:23.7330,a:.003,b:9,c:'c',d:1},
+{n:'Jerusalém',lat:31.7785,lon:35.2200,a:.003,b:9,c:'c',d:1},
+{n:'Tel Aviv-Yafo',lat:32.0800,lon:34.7900,a:.12,b:6,c:'c',d:1},
+{n:'Haifa',lat:32.7940,lon:34.9900,a:.12,b:6,c:'c',d:1},
+{n:'Eilat',lat:29.5577,lon:34.9519,a:.08,b:8,c:'c',d:1},
+{n:'Belém',lat:31.7050,lon:35.2000,a:.6,b:12,c:'c',d:1},
+{n:'Nazaré',lat:32.7000,lon:35.3030,a:.4,b:6,c:'c',d:1},
+{n:'Tiberíades',lat:32.7940,lon:35.5300,a:.4,b:8,c:'c',d:1},
+{n:'Berseba',lat:31.2520,lon:34.7915,a:.25,b:8,c:'c',d:1},
+{n:'Jericó',lat:31.8570,lon:35.4440,a:.4,b:8,c:'c',d:1},
+{n:'Cidade Velha',lat:31.7792,lon:35.2318,a:9,b:28,c:'q'},
+{n:'Bairro Judeu',lat:31.7752,lon:35.2318,a:28,b:999,c:'q'},
+{n:'Bairro Cristão',lat:31.7792,lon:35.2285,a:28,b:999,c:'q'},
+{n:'Bairro Muçulmano',lat:31.7808,lon:35.2330,a:28,b:999,c:'q'},
+{n:'Bairro Armênio',lat:31.7748,lon:35.2290,a:28,b:999,c:'q'}
+];
+SITES.push(
+{id:'qasr',n:'Qasr al-Yahud (Rio Jordão)',r:'Mar Morto e deserto',lat:31.8378,lon:35.5333,z:ST,e:'Século I',s:'Junto a Jericó, este trecho do Jordão é onde a tradição situa o batismo de Jesus por João Batista (Mateus 3:13-17). O lugar também é ligado à travessia do rio pelos israelitas com Josué e à subida de Elias ao céu. A outra margem, a poucos metros, já é a Jordânia.',t:'Fica na Cisjordânia, mas com acesso pela estrada 90. Há vestiários para quem quer entrar no rio.'},
+{id:'cana',n:'Caná',r:'Galileia',lat:32.7466,lon:35.3390,z:ST,e:'Século I',s:'Na vila de Kafr Kanna, perto de Nazaré, a tradição situa as bodas de Caná, quando Jesus transformou água em vinho (João 2:1-11). Muitos arqueólogos, porém, preferem Khirbet Qana, umas ruínas cerca de 13 km ao norte. Nas igrejas daqui, casais renovam os votos de casamento.',t:'Combine com Nazaré: são poucos minutos de carro.'},
+{id:'jerico',n:'Jericó',r:'Mar Morto e deserto',lat:31.8570,lon:35.4440,z:ST,e:'Século I',s:'Uma das cidades mais antigas do mundo, com vestígios de mais de 10 mil anos em Tel es-Sultan. Na época de Jesus, a Jericó de Herodes ficava um pouco ao sul, com palácios de inverno; foi ali que Zaqueu subiu num sicômoro para ver Jesus passar (Lucas 19:1-10).',t:'Fica na Área A da Cisjordânia: com carro alugado em Israel em geral não há seguro. Vá com guia.'},
+{id:'betania',n:'Betânia',r:'Jerusalém',lat:31.7714,lon:35.2614,z:JR,e:'Século I',s:'Betânia, hoje al-Eizariya, era a vila de Marta, Maria e Lázaro, onde Jesus se hospedava ao subir a Jerusalém. A tradição mostra aqui o túmulo de onde ele chamou Lázaro para fora (João 11:1-44).',t:'Fica do outro lado do muro de separação; vá com guia local.'},
+{id:'betesda',n:'Piscina de Betesda',r:'Jerusalém',lat:31.7814,lon:35.2360,z:OC,e:'Século I',s:'As escavações revelaram duas grandes piscinas com pórticos, como João as descreve, onde Jesus curou um homem paralítico havia 38 anos (João 5:1-9). As ruínas ficam no pátio da Igreja de Santa Ana, junto à Porta dos Leões.',t:'A Igreja de Santa Ana, dos cruzados, tem acústica famosa: os grupos cantam lá dentro.'},
+{id:'siloe',n:'Piscina de Siloé',r:'Jerusalém',lat:31.7703,lon:35.2352,z:OC,e:'Século I',s:'Em 2004, operários que consertavam um cano acharam os degraus da Piscina de Siloé do tempo de Jesus, onde ele mandou um cego de nascença se lavar (João 9:1-11). Ela recebia a água do Túnel de Ezequias.',t:'Fica no fim da visita à Cidade de Davi.'},
+{id:'egito',n:'Cairo Antigo',r:'Egito',lat:30.0060,lon:31.2300,z:12,e:'Tradição copta',s:'Mateus conta que José levou Maria e o menino para o Egito, fugindo de Herodes (Mateus 2:13-15). A Bíblia não diz onde ficaram; a tradição copta traça um longo roteiro pelo país, e no Cairo Antigo a Igreja de São Sérgio foi erguida sobre uma gruta onde a família teria se abrigado.',t:''}
+);
+SITES.push(
+{id:'antonia',ant:1,n:'Fortaleza Antônia',r:'Jerusalém',lat:31.7806,lon:35.2343,z:OC,e:'c. 35 a.C. a 70 d.C.',s:'Herodes construiu esta fortaleza colada ao canto noroeste do Templo e lhe deu o nome do amigo Marco Antônio. Dali a guarnição romana vigiava os pátios nas festas. Foi para cá que os soldados levaram Paulo, salvo da multidão, e dos degraus da fortaleza ele falou ao povo (Atos 21:30-40).',c:'Confirmado',v:'Atos 21:30–22:24'},
+{id:'salomao',ant:1,n:'Pórtico de Salomão',r:'Jerusalém',lat:31.7785,lon:35.2373,z:OC,e:'Século I',s:'Colunata coberta ao longo do lado leste do Templo. No inverno, na Festa da Dedicação, Jesus andava por aqui quando lhe perguntaram se era o Cristo (João 10:22-24); depois, os apóstolos se reuniam neste pórtico (Atos 3:11; 5:12).',c:'Provável',v:'João 10:22-24 · Atos 3:11'},
+{id:'portico',ant:1,n:'Pórtico Real',r:'Jerusalém',lat:31.7763,lon:35.2354,z:OC,e:'Século I',s:'Do lado sul do Templo, Herodes ergueu uma basílica enorme, com quatro fileiras de colunas, segundo Flávio Josefo. Era o lugar do comércio do Templo, com cambistas e vendedores de animais para os sacrifícios.',c:'Confirmado',v:'Marcos 11:15-17'},
+{id:'caifas',ant:1,n:'Casa de Caifás',r:'Jerusalém',lat:31.7716,lon:35.2314,z:OC,e:'Século I',s:'Depois da prisão no Getsêmani, Jesus foi levado à casa do sumo sacerdote Caifás, onde Pedro o negou três vezes antes de o galo cantar (Mateus 26:57-75). A tradição situa a casa na encosta leste do Monte Sião, onde hoje fica a Igreja de São Pedro em Galicantu.',c:'Tradicional',v:'Mateus 26:57-75'},
+{id:'asmoneu',ant:1,n:'Palácio dos Asmoneus',r:'Jerusalém',lat:31.7763,lon:35.2326,z:OC,e:'Século II a.C.',s:'Antigo palácio da dinastia dos Macabeus, de frente para o Templo. Herodes Antipas ficava aqui quando vinha a Jerusalém, e foi provavelmente aqui que Pilatos lhe mandou Jesus para ser interrogado (Lucas 23:6-12).',c:'Provável',v:'Lucas 23:6-12'},
+{id:'magdala',n:'Magdala',r:'Galileia',lat:32.8250,lon:35.5160,z:ST,e:'Século I',s:'Cidade de pescadores e salgadores de peixe, terra de Maria Madalena (Lucas 8:2). Em 2009, escavações acharam ali uma sinagoga do tempo de Jesus, com uma pedra esculpida com a menorá do Templo; é muito provável que ele tenha ensinado nela.',c:'Confirmado',v:'Lucas 8:1-3 · Mateus 15:39'},
+{id:'tiberiades',n:'Tiberíades',r:'Galileia',lat:32.7860,lon:35.5420,z:ST,e:'c. 20 d.C.',s:'Herodes Antipas fundou a cidade por volta do ano 20 e lhe deu o nome do imperador Tibério; virou a capital da Galileia. Os Evangelhos a citam só de passagem (João 6:23), e não há registro de que Jesus tenha entrado nela.',c:'Confirmado',v:'João 6:1 · João 6:23'},
+{id:'betsaida',n:'Betsaida',r:'Galileia',lat:32.9100,lon:35.6300,z:ST,e:'Século I',s:'Vila de pescadores, terra de Pedro, André e Filipe (João 1:44). Perto dali Jesus curou um cego em duas etapas (Marcos 8:22-26). Os arqueólogos discutem entre as ruínas de et-Tell e de el-Araj, mais perto do lago.',c:'Debatido',v:'João 1:44 · Marcos 8:22-26'},
+{id:'corazim',n:'Corazim',r:'Galileia',lat:32.9113,lon:35.5640,z:ST,e:'Século I',s:'Vila nas colinas acima do lago, construída em basalto escuro. Jesus a repreendeu por não se converter, junto com Betsaida e Cafarnaum (Mateus 11:20-24). As ruínas mostram uma sinagoga de basalto um pouco posterior.',c:'Confirmado',v:'Mateus 11:20-24'},
+{id:'naim',n:'Naim',r:'Galileia',lat:32.6330,lon:35.3500,z:ST,e:'Século I',s:'Na pequena vila de Naim, ao pé do Monte Moré, Jesus encontrou o enterro do filho único de uma viúva e o devolveu vivo à mãe (Lucas 7:11-17).',c:'Provável',v:'Lucas 7:11-17'},
+{id:'sicar',n:'Poço de Jacó (Sicar)',r:'Samaria',lat:32.2094,lon:35.2856,z:ST,e:'Século I',s:'Junto ao poço que a tradição atribui ao patriarca Jacó, Jesus pediu água a uma samaritana e conversou com ela sobre a água viva (João 4:1-42). Ao lado se ergue o Monte Gerizim, o monte sagrado dos samaritanos.',c:'Provável',v:'João 4:1-42'},
+{id:'sebaste',n:'Sebaste (Samaria)',r:'Samaria',lat:32.2763,lon:35.1897,z:ST,e:'27 a.C.',s:'Herodes reconstruiu a antiga capital do reino de Israel e a chamou de Sebaste, em honra de Augusto, com um templo ao imperador no alto da colina. A Samaria foi evangelizada pelo diácono Filipe (Atos 8:5-8).',c:'Confirmado',v:'Atos 8:5-8'},
+{id:'herodium',n:'Herodium',r:'Belém',lat:31.6658,lon:35.2416,z:ST,e:'c. 23 a.C.',s:'Herodes mandou erguer um monte artificial em forma de cone, com um palácio-fortaleza redondo no topo, visível de Jerusalém e de Belém. Ali ele foi sepultado; o túmulo foi achado em 2007.',c:'Confirmado',v:'Mateus 2:1-19'},
+{id:'hebrom',n:'Hebrom',r:'Belém',lat:31.5245,lon:35.1105,z:ST,e:'Século I',s:'Uma das cidades mais antigas da região, onde a tradição situa o túmulo de Abraão, Sara e os patriarcas, na Gruta de Macpela (Gênesis 23). Herodes cercou o lugar com um grande muro de pedra que ainda está de pé.',c:'Confirmado',v:'Gênesis 23 · 2 Samuel 2:1-4'},
+{id:'emaus',n:'Emaús',r:'Jerusalém',lat:31.8390,lon:34.9890,z:ST,e:'Século I',s:'Na estrada de Emaús, dois discípulos caminharam com Jesus ressuscitado sem o reconhecer, até que ele partiu o pão à mesa (Lucas 24:13-35). Há pelo menos três lugares candidatos; este, Emaús-Nicópolis, é o mais antigo na tradição.',c:'Debatido',v:'Lucas 24:13-35'},
+{id:'banias',n:'Cesareia de Filipe',r:'Galileia',lat:33.2483,lon:35.6944,z:ST,e:'c. 2 a.C.',s:'Ao pé do Monte Hermon, junto a uma fonte do Jordão e a um santuário do deus Pã, o tetrarca Filipe fundou a sua capital. Foi nos arredores que Pedro declarou: "Tu és o Cristo" (Mateus 16:13-20).',c:'Confirmado',v:'Mateus 16:13-20'},
+{id:'gadara',n:'Gadara',r:'Galileia',lat:32.6556,lon:35.6786,z:ST,e:'Século I',s:'Cidade grega da Decápole, no alto de um planalto com vista para o lago. Na região dos gadarenos, Jesus libertou dois endemoninhados, e os demônios entraram numa manada de porcos (Mateus 8:28-34). Hoje são as ruínas de Umm Qais, na Jordânia.',c:'Provável',v:'Mateus 8:28-34'},
+{id:'maqueronte',n:'Maqueronte',r:'Mar Morto e deserto',lat:31.5594,lon:35.6247,z:ST,e:'Século I',s:'Fortaleza de Herodes do outro lado do Mar Morto. Segundo Flávio Josefo, foi aqui que Herodes Antipas prendeu e mandou decapitar João Batista (Marcos 6:17-29).',c:'Provável',v:'Marcos 6:17-29'}
+);
+
+SITES.push(
+{id:'cencreia',n:'Cencreia',r:'Arredores de Atenas',pa:1,lat:37.8843,lon:22.9927,z:12,e:'Atos 18 · c. 51 d.C.',s:'O porto oriental de Corinto, no Golfo Sarônico, de onde saíam os navios para a Ásia. Antes de embarcar para a Síria, Paulo raspou a cabeça aqui por causa de um voto (Atos 18:18). Na igreja de Cencreia servia Febe, a quem Paulo confiou a carta aos Romanos (Romanos 16:1-2). Parte do porto antigo está hoje debaixo d’água.',t:'Dá para ver as ruínas do cais da beira da praia.',c:'Confirmado',v:'Atos 18:18 · Romanos 16:1-2'},
+{id:'istmia',n:'Santuário de Ístmia',r:'Arredores de Atenas',pa:1,lat:37.9160,lon:22.9934,z:12,e:'Jogos Ístmicos',s:'Aqui, no istmo, ficava o templo de Poseidon e o estádio dos Jogos Ístmicos, disputados a cada dois anos; houve jogos em 51, quando Paulo provavelmente estava em Corinto. Muitos estudiosos veem eco deles na carta aos Coríntios: correr para ganhar o prêmio, a coroa que murcha (1 Coríntios 9:24-27).',t:'O pequeno museu de Ístmia fica ao lado das ruínas.',c:'Provável',v:'1 Coríntios 9:24-27'},
+{id:'lecaion',n:'Porto de Lecaion',r:'Arredores de Atenas',lat:37.9330,lon:22.8890,z:12,e:'Século I',s:'O porto ocidental de Corinto, no golfo de Corinto, ligado ao fórum por uma avenida com colunatas, a Estrada de Lecaion. Por aqui chegavam os navios vindos da Itália.',t:'',c:'Confirmado'},
+{id:'acrocorinto',n:'Acrocorinto',r:'Arredores de Atenas',lat:37.8890,lon:22.8690,z:12,e:'575 m',s:'A montanha-fortaleza que domina Corinto, com 575 metros. No topo havia um templo de Afrodite. Do alto se veem os dois mares que fizeram a riqueza da cidade.',t:'Dá para subir de carro até perto da porta da fortaleza medieval.',c:'Confirmado'}
+);
+/* c: selo de certeza · v: referências bíblicas · an/as: nome e história no ano 30 · mod: só existe hoje */
+const META={
+muro:{ae:'Século I a.C.',c:'Confirmado',v:'Marcos 13:1-2',an:'Muro do Templo',as:'Em 30 d.C., este paredão era só a base oeste da esplanada do Templo, ainda em obras. Jesus e os discípulos passavam por aqui; foi ao admirar estas pedras enormes que os discípulos ouviram dele que não ficaria pedra sobre pedra (Marcos 13:1-2).'},
+templo:{ae:'c. 20 a.C. a 70 d.C.',c:'Confirmado',v:'Lucas 2:22-50 · Marcos 11:15-17 · João 10:22-23',an:'Templo de Herodes',as:'Em 30 d.C., aqui se erguia o Templo reconstruído por Herodes, o Grande, centro da fé judaica e destino de peregrinos de todo o mundo. Jesus foi apresentado aqui ainda bebê (Lucas 2:22-38), conversou com os mestres aos 12 anos (Lucas 2:41-50) e expulsou os vendilhões (Marcos 11:15-17). Os romanos o destruíram no ano 70.'},
+sepulcro:{ae:'Século I',c:'Provável',v:'João 19:17-42 · João 20:1-18',an:'Gólgota',as:'Em 30 d.C., este lugar ficava fora das muralhas: uma antiga pedreira com túmulos escavados na rocha. A tradição, que remonta pelo menos ao século IV, situa aqui o Gólgota e o sepulcro novo de José de Arimateia (João 19:17-42).'},
+dolorosa:{c:'Tradicional',v:'João 19:16-17 · Lucas 23:26-32'},
+torre:{c:'Provável',v:'João 18:28–19:16',an:'Palácio de Herodes',as:'Aqui ficava o palácio de Herodes, o Grande, protegido por três torres. Muitos historiadores acham que foi aqui, e não na Fortaleza Antônia, que Pôncio Pilatos julgou Jesus (João 18:28–19:16); a questão continua em debate.'},
+cenaculo:{c:'Tradicional',v:'Lucas 22:7-20 · Atos 2:1-4'},
+getsemani:{c:'Provável',v:'Marcos 14:32-50'},
+oliveiras:{c:'Confirmado',v:'Lucas 19:28-44 · Atos 1:9-12'},
+davi:{c:'Confirmado',v:'2 Samuel 5:6-9 · 2 Reis 20:20'},
+betesda:{c:'Confirmado',v:'João 5:1-9'},siloe:{c:'Confirmado',v:'João 9:1-11'},
+betania:{c:'Provável',v:'João 11:1-44 · João 12:1-8'},
+natividade:{c:'Tradicional',v:'Lucas 2:1-20 · Mateus 2:1-12',an:'Belém'},
+yadvashem:{mod:1},mahane:{mod:1},independencia:{mod:1},bauhaus:{mod:1},nevetzedek:{mod:1},bahai:{mod:1},museuacropole:{mod:1},plaka:{mod:1},yardenit:{mod:1},
+jaffa:{c:'Confirmado',v:'Jonas 1:3 · Atos 9:36–10:23',an:'Jope'},
+cesareia:{c:'Confirmado',v:'Atos 10 · Atos 23:23–26:32'},
+akko:{c:'Confirmado',v:'Atos 21:7',an:'Ptolemaida'},
+nazare:{c:'Tradicional',v:'Lucas 1:26-38 · Lucas 4:16-30',an:'Nazaré'},
+cana:{c:'Debatido',v:'João 2:1-11'},
+cafarnaum:{c:'Confirmado',v:'Mateus 4:13 · Marcos 2:1-12'},
+bemaventurancas:{c:'Tradicional',v:'Mateus 5–7'},
+tabgha:{c:'Tradicional',v:'Marcos 6:30-44',an:'Heptapegon (Sete Fontes)'},
+tabor:{c:'Tradicional',v:'Mateus 17:1-8'},
+megido:{c:'Confirmado',v:'Apocalipse 16:16'},
+qasr:{c:'Tradicional',v:'Mateus 3:13-17 · Josué 3'},
+jerico:{c:'Confirmado',v:'Lucas 19:1-10 · Marcos 10:46-52'},
+massada:{c:'Confirmado'},eingedi:{c:'Confirmado',v:'1 Samuel 24',an:'En-Gedi'},qumran:{c:'Confirmado'},
+marmorto:{an:'Mar Salgado'},
+egito:{c:'Tradicional',v:'Mateus 2:13-15'},
+areopago:{c:'Confirmado',v:'Atos 17:19-34'},agora:{c:'Confirmado',v:'Atos 17:17-18'},acropole:{c:'Confirmado',v:'Atos 17:16'},
+pireu:{c:'Provável',v:'Atos 17:14-15'},corinto:{c:'Confirmado',v:'Atos 18:1-17 · 1 e 2 Coríntios'},
+zeus:{an:'Olimpieion (inacabado)'}
+};
+SITES.forEach(s=>Object.assign(s,META[s.id]||{}));
+const JOURNEYS=[
+{id:'nasc',t:'O nascimento de Jesus',d:'De Nazaré a Belém, ao Templo e ao Egito',st:[
+ ['nazare','O anjo Gabriel anuncia a Maria, em Nazaré, que ela será mãe do Messias.','Lucas 1:26-38'],
+ ['natividade','Por causa do recenseamento, José e Maria descem a Belém, a cidade de Davi, e ali Jesus nasce, deitado numa manjedoura.','Lucas 2:1-7'],
+ ['templo','Quarenta dias depois, o menino é apresentado no Templo, onde o velho Simeão e a profetisa Ana o reconhecem.','Lucas 2:22-38'],
+ ['egito','Avisado em sonho, José foge com Maria e o menino para o Egito, longe de Herodes.','Mateus 2:13-15'],
+ ['nazare','Morto Herodes, a família volta e vai morar em Nazaré, na Galileia.','Mateus 2:19-23']]},
+{id:'gal',t:'O ministério na Galileia',d:'Do batismo no Jordão ao Monte Tabor',st:[
+ ['qasr','João batiza Jesus no Jordão, e uma voz do céu o chama de Filho amado.','Mateus 3:13-17'],
+ ['cana','Numa festa de casamento, Jesus transforma água em vinho: o primeiro dos seus sinais.','João 2:1-11'],
+ ['nazare','Na sinagoga da sua cidade, Jesus lê Isaías e é rejeitado pelos conterrâneos.','Lucas 4:16-30'],
+ ['cafarnaum','Jesus faz de Cafarnaum a sua base, chama pescadores e cura um paralítico descido pelo telhado.','Marcos 2:1-12'],
+ ['bemaventurancas','Numa colina sobre o lago, ensina as bem-aventuranças e o Pai-Nosso.','Mateus 5–7'],
+ ['tabgha','Com cinco pães e dois peixes, alimenta uma multidão à beira do lago.','Marcos 6:30-44'],
+ ['tabor','Num monte alto, Pedro, Tiago e João veem Jesus transfigurado, com Moisés e Elias.','Mateus 17:1-8']]},
+{id:'jer',t:'Os últimos dias em Jerusalém',d:'De Jericó ao túmulo vazio',st:[
+ ['jerico','Subindo para Jerusalém, Jesus passa por Jericó e se hospeda na casa de Zaqueu.','Lucas 19:1-10'],
+ ['betania','Em Betânia, na casa de Lázaro, Maria unge os pés de Jesus seis dias antes da Páscoa.','João 12:1-8'],
+ ['oliveiras','Do Monte das Oliveiras, Jesus desce montado num jumentinho, aclamado pela multidão.','Lucas 19:28-44'],
+ ['templo','No Templo, derruba as mesas dos cambistas e ensina todos os dias.','Marcos 11:15-18'],
+ ['cenaculo','Na sala do andar de cima, celebra a última ceia com os discípulos.','Lucas 22:7-20'],
+ ['getsemani','No jardim, ora em agonia e é preso à noite.','Marcos 14:32-50'],
+ ['torre','Diante de Pôncio Pilatos, é julgado e condenado à cruz.','João 18:28–19:16'],
+ ['dolorosa','Carregando a cruz, segue pelas ruas até o lugar da execução.','João 19:16-17'],
+ ['sepulcro','É crucificado no Gólgota e sepultado; no terceiro dia, o túmulo está vazio.','João 19:17–20:18']]},
+{id:'paulo',t:'Paulo em Atenas e Corinto',d:'Do porto do Pireu ao Bema de Corinto',st:[
+ ['pireu','Vindo de Bereia, Paulo é levado até Atenas, onde espera por Silas e Timóteo.','Atos 17:14-15'],
+ ['acropole','Andando pela cidade, ele se indigna ao ver Atenas cheia de ídolos.','Atos 17:16'],
+ ['agora','Na praça, discute todos os dias com quem passa, inclusive filósofos epicureus e estoicos.','Atos 17:17-18'],
+ ['areopago','No Areópago, anuncia o Deus desconhecido; Dionísio e Dâmaris passam a crer.','Atos 17:19-34'],
+ ['corinto','Em Corinto, faz tendas com Áquila e Priscila, fica um ano e meio e é levado diante de Gálio.','Atos 18:1-17'],
+ ['cencreia','No porto de Cencreia, Paulo raspa a cabeça por causa de um voto e embarca para a Síria.','Atos 18:18']]}
+];
+const LM={'Tel Aviv-Yafo':{m:1},'Haifa':{m:1},'Eilat':{m:1},'Rio de Janeiro':{m:1},'São Paulo':{m:1},'Cairo':{an:'Babilônia do Egito'},'BRASIL':{m:1},'AMÉRICA':{m:1},'AUSTRÁLIA':{m:1},
+ 'Lisboa':{an:'Olisipo'},'Istambul':{an:'Bizâncio'},'Mar Morto':{an:'Mar Salgado'},'GALILEIA':{h30:1},'SAMARIA':{h30:1},'JUDEIA':{h30:1},'NEGUEV':{h30:1},'ÁSIA MENOR':{an:'ÁSIA (PROVÍNCIA ROMANA)'},'GRÉCIA':{an:'ACAIA'}};
+LABELS.forEach(L=>Object.assign(L,LM[L.n]||{}));
+let ERA30=false;
+const labName=L=>ERA30?(L.m||L.h30?null:(L.an||L.n)):(L.o30?null:L.n);
+
+
+/* ---------- Estado ---------- */
+const S={mode:'boot',photos:[],places:[],canAdd:false,db:null,assets:null,sample:null,idb:null,urls:new Map()};
+let cam={k:.3,tx:0,ty:0},W=0,H=0,ready=false,picking=null,tempPin=null,tour=null,curPlace=null;
+const WORLD=[[66,-80],[-42,110]];
+const KMIN=.0006,KMAX=90;
+let PL=[],byId=new Map(),photosOf=new Map();
+
+function rebuild(){
+  PL=SITES.filter(s=>!(ERA30&&s.mod)&&!(!ERA30&&s.ant)).map(s=>({...s,n:ERA30&&s.an?s.an:s.n,s:ERA30&&s.as?s.as:s.s,e:ERA30&&s.ae?s.ae:s.e,custom:false})).concat(S.places.map(p=>({id:p.id,n:p.name||'Lugar sem nome',r:'Seus lugares',lat:p.lat,lon:p.lon,z:12,e:'',s:p.story||'',t:'',custom:true})));
+  byId=new Map(PL.map(p=>[p.id,p]));
+  photosOf=new Map();
+  for(const ph of sortedPhotos()){if(!photosOf.has(ph.placeId))photosOf.set(ph.placeId,[]);photosOf.get(ph.placeId).push(ph)}
+}
+const sortedPhotos=()=>S.photos.slice().sort((a,b)=>(a.takenAt||0)-(b.takenAt||0));
+const urlOf=ph=>{if(ph.assetId)return '/_blob/'+ph.assetId;if(ph.blob){let u=S.urls.get(ph.id);if(!u){u=URL.createObjectURL(ph.blob);S.urls.set(ph.id,u)}return u}return ph.url||''};
+function refresh(){rebuild();schedule();if(V3.on)V3.relabel();if(curPlace&&document.body.classList.contains('sheet-open')&&!formOpen){const p=byId.get(curPlace);if(p)showPlace(p,false)}updateHint()}
+
+/* ---------- Câmera ---------- */
+const clampK=k=>Math.min(KMAX,Math.max(KMIN,k));
+const toS=(lat,lon)=>{const [X,Y]=P(lat,lon);return [X*cam.k+cam.tx,Y*cam.k+cam.ty]};
+const fromS=(x,y)=>unP((x-cam.tx)/cam.k,(y-cam.ty)/cam.k);
+function focus(){const b=document.body.classList;if(b.contains('touring'))return [W/2,H*.27];if(b.contains('sheet-open')){if(innerWidth>=820)return [(W-410)/2,H/2];return [W/2,H*.24]}return [W/2,H/2]}
+function camFor(lat,lon,k){const [fx,fy]=focus();const [X,Y]=P(lat,lon);k=clampK(k);return {k,tx:fx-X*k,ty:fy-Y*k}}
+function camFit(pts,pad=60,kmax=40){
+  if(!pts.length)return camFit(WORLD,pad);
+  const w=pts.map(p=>P(p[0],p[1]));const xs=w.map(a=>a[0]),ys=w.map(a=>a[1]);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const [fx,fy]=focus();const aw=Math.min(fx,W-fx)*2,ah=Math.min(fy,H-fy)*2;
+  const k=clampK(Math.min(kmax,(aw-2*pad)/Math.max(x1-x0,1),(ah-2*pad)/Math.max(y1-y0,1)));
+  return {k,tx:fx-(x0+x1)/2*k,ty:fy-(y0+y1)/2*k};
+}
+let fly=null;
+function flyTo(t,dur=900){
+  stopFly();if(RM||!ready){cam={...t};schedule();return}
+  const s={...cam},[fx,fy]=[W/2,H/2];
+  const c0=[(fx-s.tx)/s.k,(fy-s.ty)/s.k],c1=[(fx-t.tx)/t.k,(fy-t.ty)/t.k],l0=Math.log(s.k),l1=Math.log(t.k),t0=performance.now();
+  const Dw=Math.hypot(c1[0]-c0[0],c1[1]-c0[1]),lm=Math.log(clampK(W*.7/Math.max(Dw,1)));const lc=lm<Math.min(l0,l1)?2*lm-(l0+l1)/2:(l0+l1)/2;
+  if(lm<Math.min(l0,l1)-.7)dur=Math.max(dur,2200);
+  const step=now=>{let u=Math.min(1,(now-t0)/dur);u=u<.5?4*u*u*u:1-((-2*u+2)**3)/2;
+    const k=Math.exp((1-u)*(1-u)*l0+2*u*(1-u)*lc+u*u*l1),cx=c0[0]+(c1[0]-c0[0])*u,cy=c0[1]+(c1[1]-c0[1])*u;
+    cam={k,tx:fx-cx*k,ty:fy-cy*k};draw();if(u<1)fly=requestAnimationFrame(step);else fly=null};
+  fly=requestAnimationFrame(step);
+}
+function stopFly(){if(fly){cancelAnimationFrame(fly);fly=null}}
+function zoomAt(x,y,f){const nk=clampK(cam.k*f);f=nk/cam.k;cam.tx=x-(x-cam.tx)*f;cam.ty=y-(y-cam.ty)*f;cam.k=nk}
+
+/* ---------- Desenho ---------- */
+let raf=0;const schedule=()=>{if(!raf)raf=requestAnimationFrame(()=>{raf=0;draw()})};
+function draw(){
+  if(!W)return;setLod();
+  world.setAttribute('transform',`translate(${cam.tx.toFixed(2)} ${cam.ty.toFixed(2)}) scale(${cam.k.toPrecision(6)})`);
+  drawDeco();drawTrail();drawMarks();
+}
+function drawDeco(){
+  const cx=W-46,cy=Math.min(112,H*.2),r=22;let pts='';
+  for(let i=0;i<8;i++){const a=i*Math.PI/4-Math.PI/2,L=i%2?r*.55:r,a1=a-Math.PI/8,a2=a+Math.PI/8,ri=r*.2;
+    const p=[cx+Math.cos(a)*L,cy+Math.sin(a)*L],q1=[cx+Math.cos(a1)*ri,cy+Math.sin(a1)*ri],q2=[cx+Math.cos(a2)*ri,cy+Math.sin(a2)*ri];
+    pts+=`<path d="M${cx} ${cy}L${q1}L${p}Z" fill="${i%2?'#e9d5a6':'#3a2311'}"/><path d="M${cx} ${cy}L${q2}L${p}Z" fill="${i%2?'#cdb27e':'#a3251a'}"/>`}
+  const nice=[.1,.2,.5,1,2,5,10,20,50,100,200,500,1000,2000,5000];const kmpx=111.32*Math.cos(fromS(W/2,H/2)[0]*RAD)/K/cam.k;let km=nice.find(n=>n/kmpx>=60)||5000;const px=km/kmpx;
+  const sx=22,sy=H-48;
+  $('#deco').innerHTML=`<g class="compass" opacity=".8"><circle cx="${cx}" cy="${cy}" r="${r+6}" fill="none" stroke="#3a2311" stroke-width="1"/><circle cx="${cx}" cy="${cy}" r="${r+9}" fill="none" stroke="#3a2311" stroke-width=".6" stroke-dasharray="2 3"/>${pts}<text x="${cx}" y="${cy-r-13}" text-anchor="middle" style="font:400 16px 'Pirata One',serif;fill:#3a2311">N</text></g>
+  <g class="scale"><path d="M${sx} ${sy}h${px.toFixed(1)}" stroke="#3a2311" stroke-width="5"/><path d="M${sx} ${sy}h${(px/2).toFixed(1)}" stroke="#ecd8aa" stroke-width="3"/><text x="${sx}" y="${sy-8}">${km<1?km*1000+' m':km+' km'}</text></g>`;
+}
+function stops(){const st=[];for(const ph of sortedPhotos()){const p=byId.get(ph.placeId);if(!p)continue;const last=st[st.length-1];if(last&&last.place.id===p.id)last.photos.push(ph);else st.push({place:p,photos:[ph]})}return st}
+function drawTrail(){
+  let st=tour?tour.st.slice(0,tour.i+1):stops();
+  let d='';st.forEach((s,i)=>{const [x,y]=toS(s.place.lat,s.place.lon);if(!i){d+=`M${x.toFixed(1)} ${y.toFixed(1)}`;return}
+    const [px,py]=toS(st[i-1].place.lat,st[i-1].place.lon),mx=(px+x)/2,my=(py+y)/2,dx=x-px,dy=y-py;
+    d+=`Q${(mx-dy*.18).toFixed(1)} ${(my+dx*.18).toFixed(1)} ${x.toFixed(1)} ${y.toFixed(1)}`});
+  $('#trailG').innerHTML=d?`<path class="trail" d="${d}"/>`:'';
+}
+function drawMarks(){
+  const items=PL.map(p=>{const [x,y]=toS(p.lat,p.lon);const n=(photosOf.get(p.id)||[]).length;return {p,x,y,n}}).filter(o=>o.x>-60&&o.y>-60&&o.x<W+60&&o.y<H+60);
+  items.sort((a,b)=>(b.n>0)-(a.n>0)||(a.p.custom-b.p.custom));
+  const cl=[];for(const it of items){const c=cl.find(c=>Math.hypot(c.x-it.x,c.y-it.y)<28);if(c){c.m.push(it)}else cl.push({x:it.x,y:it.y,m:[it]})}
+  const rects=[];const hit=(r)=>rects.some(q=>r[0]<q[2]&&r[2]>q[0]&&r[1]<q[3]&&r[3]>q[1]);
+  let mk='',lb='';
+  cl.forEach((c,i)=>{rects.push([c.x-14,c.y-14,c.x+14,c.y+14]);
+    if(c.m.length===1){const {p,n}=c.m[0];
+      mk+=n?`<g class="m v" data-p="${esc(p.id)}" transform="translate(${c.x.toFixed(1)} ${c.y.toFixed(1)})"><circle class="hit" r="22"/><circle class="ring" r="14"/><path class="x" d="M-7-7L7 7M7-7L-7 7"/>${n>1?`<circle class="badge" cx="13" cy="-12" r="9"/><text class="badget" x="13" y="-8">${n}</text>`:''}</g>`
+        :`<g class="m" data-p="${esc(p.id)}" transform="translate(${c.x.toFixed(1)} ${c.y.toFixed(1)})"><circle class="hit" r="22"/><circle class="pin" r="6.5"/><circle r="2.2" class="dotc"/></g>`;
+    }else{const v=c.m.some(o=>o.n);mk+=`<g class="cl${v?' v':''}" data-c="${i}" transform="translate(${c.x.toFixed(1)} ${c.y.toFixed(1)})"><circle class="hit" r="24"/><circle class="seal" r="16"/><text y="5">${c.m.length}</text></g>`}
+  });
+  S._cl=cl;
+  const tryLabel=(t,x,y,cls,side)=>{const w=t.length*(cls.includes('c')?8:7)+4;const opts=side?[[x+14,y+5,'start'],[x-14,y+5,'end'],[x,y+26,'middle'],[x,y-16,'middle']]:[[x,y,'middle']];
+    for(const [lx,ly,a] of opts){const x0=a==='start'?lx:a==='end'?lx-w:lx-w/2;const r=[x0,ly-13,x0+w,ly+4];if(x0<12||x0+w>W-12)continue;if(!hit(r)){rects.push(r);lb+=`<text class="lb ${cls}" x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${a}">${esc(t)}</text>`;return true}}return false};
+  let bg='';
+  for(const L of LABELS){if(cam.k<L.a||cam.k>L.b)continue;const nm=labName(L);if(!nm)continue;const [x,y]=toS(L.lat,L.lon);if(x<-200||x>W+200||y<-40||y>H+40)continue;
+    if(L.c==='w'||L.c==='r'||L.c==='q'){bg+=`<text class="lb ${L.c}" x="${x.toFixed(1)}" y="${y.toFixed(1)}" text-anchor="middle">${esc(nm)}</text>`}}
+  const singles=cl.filter(c=>c.m.length===1);
+  singles.filter(c=>c.m[0].n).forEach(c=>tryLabel(c.m[0].p.n,c.x,c.y,'v',1));
+  for(const L of LABELS){if(L.c!=='c'||cam.k<L.a||cam.k>L.b)continue;const nm=labName(L);if(!nm)continue;const [x,y]=toS(L.lat,L.lon);if(x<0||x>W||y<0||y>H)continue;
+    if(tryLabel(nm,x,y,'c',1))bg+=`<circle class="dotc" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="3.2"/>`}
+  if(cam.k>2.2)singles.filter(c=>!c.m[0].n).forEach(c=>tryLabel(c.m[0].p.n,c.x,c.y,'',1));
+  $('#labels').innerHTML=bg+lb;
+  const meDot=ME?(()=>{const [x,y]=toS(ME.lat,ME.lon);const r=Math.max(9,ME.acc*cam.k*K/(111320*Math.cos(ME.lat*RAD)));return `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${Math.min(r,120).toFixed(1)}" fill="rgba(40,110,200,.15)" stroke="rgba(40,110,200,.5)"/><circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="7" fill="#2a6fd0" stroke="#fff" stroke-width="2.5"/>`})():'';
+  $('#marks').innerHTML=mk+meDot+(tempPin?(()=>{const [x,y]=toS(tempPin[0],tempPin[1]);return `<path class="temp" d="M${x-8} ${y-8}L${x+8} ${y+8}M${x+8} ${y-8}L${x-8} ${y+8}"/>`})():'');
+}
+
+/* ---------- Gestos ---------- */
+const ptrs=new Map();let moved=false,downAt=null;
+svg.addEventListener('pointerdown',e=>{try{svg.setPointerCapture(e.pointerId)}catch{}ptrs.set(e.pointerId,[e.clientX,e.clientY]);if(ptrs.size===1){moved=false;downAt=[e.clientX,e.clientY]}else moved=true;stopFly()});
+svg.addEventListener('pointermove',e=>{
+  if(!ptrs.has(e.pointerId))return;const prev=new Map(ptrs);ptrs.set(e.pointerId,[e.clientX,e.clientY]);
+  if(downAt&&Math.hypot(e.clientX-downAt[0],e.clientY-downAt[1])>7)moved=true;if(!moved)return;
+  const r=svg.getBoundingClientRect();
+  if(ptrs.size===1){const a=prev.get(e.pointerId),b=ptrs.get(e.pointerId);cam.tx+=b[0]-a[0];cam.ty+=b[1]-a[1]}
+  else{const [i1,i2]=[...ptrs.keys()];const a0=prev.get(i1),b0=prev.get(i2),a1=ptrs.get(i1),b1=ptrs.get(i2);
+    const d0=Math.hypot(a0[0]-b0[0],a0[1]-b0[1])||1,d1=Math.hypot(a1[0]-b1[0],a1[1]-b1[1])||1;
+    const m0=[(a0[0]+b0[0])/2-r.left,(a0[1]+b0[1])/2-r.top],m1=[(a1[0]+b1[0])/2-r.left,(a1[1]+b1[1])/2-r.top];
+    zoomAt(m0[0],m0[1],d1/d0);cam.tx+=m1[0]-m0[0];cam.ty+=m1[1]-m0[1]}
+  schedule()});
+const up=e=>{if(!ptrs.has(e.pointerId))return;ptrs.delete(e.pointerId);if(!ptrs.size&&!moved&&e.type==='pointerup')tap(e.clientX,e.clientY)};
+svg.addEventListener('pointerup',up);svg.addEventListener('pointercancel',up);
+svg.addEventListener('wheel',e=>{e.preventDefault();const r=svg.getBoundingClientRect();stopFly();zoomAt(e.clientX-r.left,e.clientY-r.top,Math.exp(-e.deltaY*.0018));schedule()},{passive:false});
+function tap(cx,cy){
+  const r=svg.getBoundingClientRect();
+  if(picking){const ll=fromS(cx-r.left,cy-r.top);const f=picking;picking=null;document.body.classList.remove('picking');f(ll);return}
+  if(tour)return;
+  const el=document.elementFromPoint(cx,cy),g=el&&el.closest&&el.closest('[data-p],[data-c]');
+  if(!g){if(!formOpen)closeSheet();return}
+  if(g.dataset.p){openPlace(g.dataset.p);return}
+  const c=S._cl&&S._cl[+g.dataset.c];if(c){const t=camFit(c.m.map(o=>[o.p.lat,o.p.lon]),70,KMAX);if(t.k<cam.k*2.5){zoomAt(c.x,c.y,2.5);flyTo({...cam},0)}else flyTo(t)}
+}
+$('#zin').onclick=()=>{if(V3.on){V3.zoom(.55);return}stopFly();const t={...cam};const k=clampK(t.k*1.8),f=k/t.k;flyTo({k,tx:W/2-(W/2-t.tx)*f,ty:H/2-(H/2-t.ty)*f},350)};
+$('#zout').onclick=()=>{if(V3.on){V3.zoom(1.8);return}stopFly();const t={...cam};const k=clampK(t.k/1.8),f=k/t.k;flyTo({k,tx:W/2-(W/2-t.tx)*f,ty:H/2-(H/2-t.ty)*f},350)};
+$('#zall').onclick=()=>{if(V3.on)V3.all();else flyTo(fitAll())};
+function fitAll(){const st=PL.filter(p=>photosOf.has(p.id));return st.length?camFit(st.map(p=>[p.lat,p.lon]).concat(st.length===1?[[st[0].lat+.15,st[0].lon+.15],[st[0].lat-.15,st[0].lon-.15]]:[]),70):camFit(WORLD,10)}
+$('#pickCancel').onclick=()=>{const f=picking;picking=null;document.body.classList.remove('picking');if(f)f(null)};
+
+new ResizeObserver(()=>{const r=svg.getBoundingClientRect();const first=!W;W=r.width;H=r.height;if(first&&W){cam=fitAll();ready=true}draw()}).observe(svg);
+
+/* ---------- Folhas ---------- */
+const sheet=$('#sheet');let formOpen=false;
+function openSheet(html){sheet.innerHTML='<div class="grab"></div>'+html;document.body.classList.add('sheet-open');sheet.scrollTop=0}
+function closeSheet(){document.body.classList.remove('sheet-open');curPlace=null;formOpen=false}
+sheet.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(!b)return;const a=b.dataset.act,v=b.dataset.v;
+  if(a==='close')closeSheet();else if(a==='ph')openViewer(v,+b.dataset.i);else if(a==='go')openPlace(v);else if(a==='addhere'){preset=v;presetAt=Date.now()}else if(a==='story')askStory(v,b);else if(a==='delplace')delPlace(v)});
+function openPlace(id){const p=byId.get(id);if(!p)return;showPlace(p,true)}
+function showPlace(p,move){
+  curPlace=p.id;formOpen=false;const ph=photosOf.get(p.id)||[];
+  const story=p.s?`<p class="story">${esc(p.s)}</p>`:(p.custom?`<p class="meta" id="st-${esc(p.id)}">Ainda sem história escrita para este lugar.</p>`:'');
+  openSheet(`<div class="shead"><h2>${esc(p.n)}</h2><button class="close" data-act="close" aria-label="Fechar">×</button></div>
+  <div class="meta">${esc(p.r)}${p.e?' · '+esc(p.e):''}${ph.length?` · ${ph.length} foto${ph.length>1?'s':''}`:''}</div>
+  ${p.c||p.v?`<div class="cert">${p.c?`<span class="cb c-${p.c[0]}" title="${esc(CERT[p.c])}">${esc(p.c)}</span>`:''}${p.v?`<span class="vv">${esc(p.v)}</span>`:''}</div>${p.c?`<p class="ctx">${esc(CERT[p.c])}</p>`:''}`:''}
+  ${ph.length?`<div class="strip">${ph.map((x,i)=>`<button data-act="ph" data-v="${esc(p.id)}" data-i="${i}" aria-label="Ver foto ${i+1}"><img src="${esc(urlOf(x))}" alt="" loading="lazy"></button>`).join('')}</div>`:''}
+  ${story}${p.t?`<p class="tip"><b>Dica de viajante:</b> ${esc(p.t)}</p>`:''}
+  <div class="acts">${S.canAdd||S.mode==='boot'?`<label class="btn p" for="file" data-act="addhere" data-v="${esc(p.id)}" style="display:inline-flex;align-items:center;cursor:pointer">Adicionar foto aqui</label>`:''}
+  ${p.custom&&S.sample&&S.canAdd?`<button class="btn" data-act="story" data-v="${esc(p.id)}">${p.s?'Reescrever história':'Pedir a história ao Claude'}</button>`:''}
+  ${p.custom&&!ph.length&&S.canAdd?`<button class="btn q" data-act="delplace" data-v="${esc(p.id)}">Apagar lugar</button>`:''}</div>`);
+  if(move){if(V3.on&&(inHL(p)||V3.inGR(p)))V3.fly(p);else flyTo(camFor(p.lat,p.lon,Math.max(cam.k,p.z)))}
+}
+$('#listBtn').onclick=()=>{
+  curPlace=null;formOpen=false;
+  const row=p=>{const n=(photosOf.get(p.id)||[]).length;return `<button class="row" data-act="go" data-v="${esc(p.id)}"><span class="mk">${n?'✕':'·'}</span><span class="nm">${esc(p.n)}${p.pa?' <i style="color:var(--muted);font-size:14px">· Paulo</i>':''}</span><span class="ct">${n?n+' foto'+(n>1?'s':''):''}</span></button>`};
+  const groups=[...REGIONS,'Seus lugares'].map(r=>{const ps=PL.filter(p=>p.r===r);return ps.length?`<h3>${esc(r)}</h3>${ps.map(row).join('')}`:''}).join('');
+  const vis=PL.filter(p=>photosOf.has(p.id)).length;
+  openSheet(`<div class="shead"><h2>Locais do mapa</h2><button class="close" data-act="close" aria-label="Fechar">×</button></div><div class="meta">${vis} de ${PL.length} lugares com fotos</div><div class="list">${groups}</div>`);
+};
+
+/* ---------- Mensagens ---------- */
+let tt=0;function toast(m,ms=3200){const t=$('#toast');t.textContent=m;t.classList.add('on');clearTimeout(tt);tt=setTimeout(()=>t.classList.remove('on'),ms)}
+function ask(msg,ok='Confirmar'){return new Promise(res=>{const m=$('#modal');$('#mbox').innerHTML=`<p style="margin-top:0">${esc(msg)}</p><div class="acts"><button class="btn p" id="mok">${esc(ok)}</button><button class="btn q" id="mno">Cancelar</button></div>`;m.classList.add('on');
+  $('#mok').onclick=()=>{m.classList.remove('on');res(true)};$('#mno').onclick=()=>{m.classList.remove('on');res(false)}})}
+function setTag(t){$('#tag').textContent=t}
+function updateHint(){let seen=false;try{seen=localStorage.getItem('mt-hint')==='1'}catch{}$('#hint').classList.toggle('hidden',seen||S.photos.length>0||S.mode==='boot')}
+$('#hintX').onclick=()=>{try{localStorage.setItem('mt-hint','1')}catch{}$('#hint').classList.add('hidden')};
+
+/* ---------- EXIF (GPS e data) ---------- */
+function exif(buf){
+  const v=new DataView(buf);if(v.getUint16(0)!==0xFFD8)return {};let o=2;
+  while(o<v.byteLength-4){const m=v.getUint16(o);if((m&0xFF00)!==0xFF00)break;const len=v.getUint16(o+2);
+    if(m===0xFFE1&&v.getUint32(o+4)===0x45786966){const t=o+10,le=v.getUint16(t)===0x4949;
+      const u16=p=>v.getUint16(p,le),u32=p=>v.getUint32(p,le);
+      const ifd=off=>{const n=u16(t+off),r={};for(let i=0;i<n;i++){const e=t+off+2+i*12;r[u16(e)]={type:u16(e+2),count:u32(e+4),e}}return r};
+      const str=en=>{const p=en.count>4?t+u32(en.e+8):en.e+8;let s='';for(let i=0;i<en.count-1;i++)s+=String.fromCharCode(v.getUint8(p+i));return s};
+      const rat=en=>{const p=t+u32(en.e+8),a=[];for(let i=0;i<en.count;i++)a.push(u32(p+i*8)/(u32(p+i*8+4)||1));return a};
+      const out={};const i0=ifd(u32(t+4));
+      if(i0[0x8769]){const ex=ifd(u32(i0[0x8769].e+8));const d=ex[0x9003]||ex[0x9004];if(d){const m2=str(d).match(/(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/);if(m2)out.date=new Date(+m2[1],m2[2]-1,+m2[3],+m2[4],+m2[5],+m2[6]).getTime()}}
+      if(!out.date&&i0[0x0132]){const m2=str(i0[0x0132]).match(/(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d)/);if(m2)out.date=new Date(+m2[1],m2[2]-1,+m2[3],+m2[4],+m2[5]).getTime()}
+      if(i0[0x8825]){const g=ifd(u32(i0[0x8825].e+8));if(g[2]&&g[4]){const la=rat(g[2]),lo=rat(g[4]);let lat=la[0]+la[1]/60+la[2]/3600,lon=lo[0]+lo[1]/60+lo[2]/3600;
+        if(g[1]&&str({...g[1],count:2})==='S')lat=-lat;if(g[3]&&str({...g[3],count:2})==='W')lon=-lon;if(lat||lon){out.lat=lat;out.lon=lon}}}
+      return out}
+    o+=2+len}
+  return {};
+}
+const scripts={};
+const loadScript=u=>scripts[u]||(scripts[u]=new Promise((res,rej)=>{const e=document.createElement('script');e.src=u;e.async=true;e.onload=res;e.onerror=()=>{delete scripts[u];rej(new Error('script'))};document.head.appendChild(e)}));
+const EXIFR='https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js',HEIC='https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+const isHeic=f=>/hei[cf]/i.test(f.type||'')||/\.hei[cf]$/i.test(f.name||'');
+async function meta(file){
+  let ex={};try{ex=exif(await file.arrayBuffer())}catch{}
+  if(ex.lat==null||!ex.date){try{await loadScript(EXIFR);const X=window.exifr;
+    if(ex.lat==null){const g=await X.gps(file).catch(()=>null);if(g&&typeof g.latitude==='number'&&typeof g.longitude==='number'&&(g.latitude||g.longitude)){ex.lat=g.latitude;ex.lon=g.longitude}}
+    if(!ex.date){const r=await X.parse(file,['DateTimeOriginal','CreateDate']).catch(()=>null);const d=r&&(r.DateTimeOriginal||r.CreateDate);if(d instanceof Date&&!isNaN(d))ex.date=d.getTime()}}catch{}}
+  return ex;
+}
+const bitmap=b=>createImageBitmap(b,{imageOrientation:'from-image'}).catch(()=>new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('fmt'));i.src=URL.createObjectURL(b)}));
+async function prep(file,onStep){
+  const ex=await meta(file);
+  let src;try{src=await bitmap(file)}catch(e){
+    if(!isHeic(file))throw e;
+    onStep&&onStep('Convertendo a foto do iPhone (HEIC)… isso leva alguns segundos.');
+    await loadScript(HEIC);let out=await window.heic2any({blob:file,toType:'image/jpeg',quality:.9});if(Array.isArray(out))out=out[0];
+    src=await bitmap(out)}
+  const w=src.width,h=src.height,s=Math.min(1,1600/Math.max(w,h));const c=document.createElement('canvas');c.width=Math.round(w*s);c.height=Math.round(h*s);
+  c.getContext('2d').drawImage(src,0,0,c.width,c.height);
+  const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.84));if(!blob)throw new Error('fmt');
+  return {blob,lat:ex.lat,lon:ex.lon,taken:ex.date||file.lastModified||Date.now()};
+}
+const inIsrael=(la,lo)=>(la>29.2&&la<33.6&&lo>33.8&&lo<36.2)||(la>34.8&&la<41.8&&lo>19.3&&lo<28.3);
+const km=(a,b,c,d)=>{const R=6371,r=Math.PI/180,x=Math.sin((c-a)*r/2)**2+Math.cos(a*r)*Math.cos(c*r)*Math.sin((d-b)*r/2)**2;return 2*R*Math.asin(Math.sqrt(x))};
+const fmtKm=d=>d<1?Math.round(d*1000/10)*10+' m':d<10?d.toFixed(1).replace('.',',')+' km':Math.round(d)+' km';
+const fmtDate=t=>new Date(t).toLocaleDateString('pt-BR',{day:'numeric',month:'long',year:'numeric'});
+const toLocalInput=t=>{const d=new Date(t);d.setMinutes(d.getMinutes()-d.getTimezoneOffset());return d.toISOString().slice(0,16)};
+
+/* ---------- Localização em tempo real (funciona fora do Claude, ex.: GitHub Pages) ---------- */
+let ME=null,meWatch=null,meFirst=true;
+function startGeo(fly){if(!navigator.geolocation){toast('Este navegador não informa a localização.');return}
+  if(meWatch!=null){if(ME&&fly)flyTo(camFor(ME.lat,ME.lon,Math.max(cam.k,8)));return}
+  meWatch=navigator.geolocation.watchPosition(p=>{ME={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy||50,t:Date.now()};$('#zme').classList.add('on');
+      if(meFirst&&fly){meFirst=false;flyTo(camFor(ME.lat,ME.lon,Math.max(cam.k,8)))}schedule()},
+    e=>{navigator.geolocation.clearWatch(meWatch);meWatch=null;$('#zme').classList.remove('on');
+      toast(e.code===1?(window.claude?'Dentro do Claude a localização é bloqueada. Abra a versão do GitHub.':'Permita o acesso à localização nas configurações do navegador.'):'Não consegui obter a localização agora.',5000)},
+    {enableHighAccuracy:true,maximumAge:15000,timeout:30000})}
+$('#zme').onclick=()=>startGeo(true);
+try{navigator.permissions&&navigator.permissions.query({name:'geolocation'}).then(r=>{if(r.state==='granted')startGeo(false)}).catch(()=>{})}catch{}
+const meFresh=()=>ME&&Date.now()-ME.t<5*60000;
+
+/* ---------- Adicionar fotos ---------- */
+const fileIn=$('#file');let preset=null;
+let presetAt=0,readyRes;const dbReady=new Promise(r=>readyRes=r);
+fileIn.addEventListener('click',()=>{if(Date.now()-presetAt>800)preset=null;fileIn.value=''});
+const LINK='https://claude.ai/artifact/5JcbaSAWDTe9YTVcqBkroa';let pickT=0;
+const pickOk=()=>{clearTimeout(pickT);pickT=0};
+addEventListener('blur',pickOk);document.addEventListener('visibilitychange',()=>{if(document.hidden)pickOk()});
+const inWebView=/Android/.test(navigator.userAgent)&&/;\s?wv\)/.test(navigator.userAgent);
+fileIn.addEventListener('click',()=>{clearTimeout(pickT);pickT=setTimeout(()=>{pickT=0;formOpen=false;curPlace=null;
+  openSheet(`<div class="shead"><h2>A galeria não abriu</h2><button class="close" data-act="close" aria-label="Fechar">×</button></div>
+  <p>O aplicativo do Claude no Android não deixa a página abrir a galeria. No <b>Chrome</b> funciona normalmente, e as fotos ficam no mesmo diário.</p>
+  <p><b>Como fazer:</b> abra o link abaixo no navegador, entre na sua conta do Claude e toque em <i>Adicionar foto</i>. As fotos ficam no mesmo diário, e você continua vendo tudo aqui também.</p>
+  <p class="loc" style="word-break:break-all">${LINK}</p>
+  <div class="acts"><a class="btn p" href="${LINK}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">Abrir no navegador</a><button class="btn" id="cpl">Copiar link</button></div>`);
+  const c=document.getElementById('cpl');if(c)c.onclick=async()=>{try{await navigator.clipboard.writeText(LINK);c.textContent='Link copiado'}catch{c.textContent='Copie o link acima'}}},inWebView?150:1600)});
+fileIn.onchange=async()=>{pickOk();const files=[...(fileIn.files||[])];if(!files.length)return;
+  if(S.mode==='boot'){formOpen=true;openSheet(`<div class="shead"><h2>Abrindo o diário…</h2></div><p class="meta">Só um instante.</p>`);await dbReady}
+  if(!S.canAdd){formOpen=false;closeSheet();toast('Este diário está em modo de leitura: só o dono pode adicionar fotos.',4500);return}
+  for(let i=0;i<files.length;i++){formOpen=true;curPlace=null;openSheet(`<div class="shead"><h2>Preparando foto…</h2></div><p class="meta">Lendo a localização e a data guardadas na imagem.</p>`);
+    let f;try{f=await prep(files[i],m=>{const p=sheet.querySelector('.meta');if(p)p.textContent=m})}catch{toast(isHeic(files[i])?'Não consegui converter esta foto HEIC. No iPhone: Ajustes › Câmera › Formatos › Mais Compatível faz as próximas fotos saírem em JPEG.':'Não consegui abrir uma das imagens.',7000);continue}
+    const r=await photoForm(f,i,files.length);if(r==='stop')break}
+  formOpen=false;closeSheet()};
+function photoForm(f,i,n){return new Promise(resolve=>{
+  const url=URL.createObjectURL(f.blob);
+  f.src=f.lat==null?'none':inIsrael(f.lat,f.lon)?'exif':'bad';
+  if(f.src==='none'&&meFresh()&&Math.abs(f.taken-Date.now())<20*60000){f.lat=ME.lat;f.lon=ME.lon;f.src=inIsrael(ME.lat,ME.lon)?'agora':'bad';if(f.src==='bad'){f.badLat=ME.lat;f.badLon=ME.lon;f.lat=f.lon=null}}
+  if(f.src==='bad'){f.badLat=f.lat;f.badLon=f.lon;f.lat=f.lon=null}
+  const render=()=>{
+    const has=f.lat!=null;
+    const list=has?PL.map(p=>({p,d:km(f.lat,f.lon,p.lat,p.lon)})).sort((a,b)=>a.d-b.d):PL.map(p=>({p,d:null}));
+    if(f.sel===undefined){f.sel=preset||(has?(list[0].d<1.2?list[0].p.id:'__new'):'')}
+    const near=has&&list[0].d<1.2;
+    const msg=f.src==='agora'?`Usei a sua localização atual${near?`: perto de <b>${esc(list[0].p.n)}</b> (${fmtKm(list[0].d)})`:'.'}`:f.src==='exif'?`Localização lida na foto${near?`: perto de <b>${esc(list[0].p.n)}</b> (${fmtKm(list[0].d)})`:'. Nenhum lugar conhecido por perto.'}`
+      :f.src==='mapa'?`Ponto marcado no mapa${near?`, perto de <b>${esc(list[0].p.n)}</b>`:''}.`
+      :f.src==='bad'?`A foto diz que foi tirada fora de Israel e da Grécia (${f.badLat.toFixed(2)}, ${f.badLon.toFixed(2)}). Deve ser a interferência no GPS: escolha o lugar certo abaixo.`
+      :`Esta foto não trouxe localização. Escolha o lugar ou marque no mapa.`;
+    const opts=list.map(({p,d})=>`<option value="${esc(p.id)}"${f.sel===p.id?' selected':''}>${esc(p.n)}${d!=null?' · '+fmtKm(d):' · '+esc(p.r)}</option>`).join('');
+    openSheet(`<div class="shead"><h2>Nova descoberta${n>1?` <span style="font-size:.55em">(${i+1} de ${n})</span>`:''}</h2><button class="close" id="fx" aria-label="Cancelar">×</button></div>
+    <img class="prev" src="${url}" alt="Foto escolhida">
+    <p class="loc${f.src==='bad'?' bad':''}">${msg}</p>
+    <label class="f" for="fsel">Onde foi?</label>
+    <select id="fsel">${f.sel===''?'<option value="" selected disabled>Escolha o lugar…</option>':''}<option value="__new"${f.sel==='__new'?' selected':''}>${has?'Novo lugar neste ponto':'Novo lugar (marcar no mapa)'}</option>${opts}</select>
+    <div id="newbox" class="${f.sel==='__new'?'':'hidden'}"><label class="f" for="fname">Nome do novo lugar</label><input type="text" id="fname" value="${esc(f.newName||'')}" placeholder="Ex.: Restaurante no porto de Jaffa"></div>
+    <div class="acts" style="margin-top:8px"><button class="btn" id="fmap">${has?'Ajustar no mapa':'Marcar no mapa'}</button>${navigator.geolocation?'<button class="btn" id="fgps">Estou aqui agora</button>':''}</div>
+    <label class="f" for="fdate">Data e hora</label><input type="datetime-local" id="fdate" value="${toLocalInput(f.taken)}">
+    <label class="f" for="fcap">Legenda (opcional)</label><textarea id="fcap" placeholder="O que aconteceu aqui?">${esc(f.caption||'')}</textarea>
+    <div class="acts"><button class="btn p" id="fsave">Gravar no mapa</button>${n>1?'<button class="btn q" id="fskip">Pular foto</button>':''}</div>
+    <p class="meta" id="ferr"></p>`);
+    const keep=()=>{f.sel=$('#fsel').value;f.newName=$('#fname').value;f.caption=$('#fcap').value;const d=new Date($('#fdate').value).getTime();if(d)f.taken=d};
+    $('#fsel').onchange=()=>{keep();$('#newbox').classList.toggle('hidden',f.sel!=='__new')};
+    $('#fx').onclick=()=>{URL.revokeObjectURL(url);resolve('stop')};
+    if($('#fskip'))$('#fskip').onclick=()=>{URL.revokeObjectURL(url);resolve('skip')};
+    if($('#fgps'))$('#fgps').onclick=()=>{keep();const use=()=>{if(!ME)return;if(!inIsrael(ME.lat,ME.lon)){$('#ferr').textContent='O GPS diz que você está fora de Israel e da Grécia (interferência?). Marque no mapa.';return}f.lat=ME.lat;f.lon=ME.lon;f.src='agora';const nr=PL.map(p=>({p,d:km(ME.lat,ME.lon,p.lat,p.lon)})).sort((a,b)=>a.d-b.d)[0];f.sel=nr.d<.4?nr.p.id:'__new';render()};
+      if(meFresh())use();else{startGeo(false);$('#ferr').textContent='Buscando a sua localização…';let n=0;const iv=setInterval(()=>{if(meFresh()||++n>40){clearInterval(iv);if(meFresh())use();else $('#ferr').textContent='Não consegui a localização. Marque no mapa.'}},500)}};
+    $('#fmap').onclick=()=>{keep();document.body.classList.add('picking');
+      picking=ll=>{if(ll){f.lat=ll[0];f.lon=ll[1];f.src='mapa';tempPin=ll;const nr=PL.map(p=>({p,d:km(ll[0],ll[1],p.lat,p.lon)})).sort((a,b)=>a.d-b.d)[0];f.sel=nr.d<.4?nr.p.id:'__new'}render();schedule()}};
+    $('#fsave').onclick=async()=>{keep();const err=$('#ferr');
+      if(!f.sel){err.textContent='Escolha onde a foto foi tirada.';return}
+      if(f.sel==='__new'&&f.lat==null){err.textContent='Marque o ponto no mapa para criar um novo lugar.';return}
+      const b=$('#fsave');b.disabled=true;b.textContent='Gravando…';
+      try{let pid=f.sel,lat=f.lat,lon=f.lon;
+        if(pid==='__new'){pid=await S.addPlace({name:(f.newName||'').trim()||'Lugar sem nome',lat,lon,story:'',createdAt:Date.now()})}
+        else if(lat==null){const p=byId.get(pid);lat=p.lat;lon=p.lon}
+        await S.addPhoto(f.blob,{placeId:pid,lat,lon,takenAt:f.taken,caption:(f.caption||'').trim(),src:f.src,addedAt:Date.now()});
+        tempPin=null;URL.revokeObjectURL(url);toast('X marca o local!');
+        if(i===n-1){resolve('ok');setTimeout(()=>{rebuild();const p=byId.get(pid);if(p)showPlace(p,true)},50)}else resolve('ok');
+      }catch(e){b.disabled=false;b.textContent='Gravar no mapa';err.textContent=(e&&e.code==='quota_exceeded'?'O espaço do diário está cheio.':'Não deu para gravar. Verifique a conexão e tente de novo.')+(e&&(e.code||e.message)?` (${e.code||e.message})`:'')}};
+    tempPin=f.lat!=null?[f.lat,f.lon]:null;schedule();
+    if(f.lat!=null)flyTo(camFor(f.lat,f.lon,Math.max(cam.k,10)),700);
+  };
+  render();
+})}
+async function delPlace(id){if(!await ask('Apagar este lugar do mapa?','Apagar'))return;try{await S.deletePlace(id);closeSheet()}catch{toast('Não deu para apagar.')}}
+async function askStory(id,btn){const p=byId.get(id);if(!p||!S.sample)return;btn.disabled=true;btn.textContent='Escrevendo…';
+  const el=document.getElementById('st-'+id)||sheet.querySelector('.story');
+  const prompt=`Você é um cronista de viagens. Escreva em português do Brasil, em 3 ou 4 frases, a história do lugar "${p.n}" (coordenadas ${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}, na Grécia, em Israel ou arredores). Use o tom de um diário de explorador antigo, mas só fatos historicamente corretos; se o lugar for pouco conhecido, conte a história da cidade ou região em volta e deixe isso claro. Responda apenas com o texto, sem título.`;
+  try{const r=await S.sample(prompt,{onText:({text})=>{if(el){el.className='story';el.textContent=text}}});await S.updatePlace(id,{story:(r.text||'').trim()})}
+  catch(e){toast(e&&e.code==='rate_limited'?'Muitos pedidos agora, tente daqui a pouco.':'Não consegui escrever a história agora.');btn.disabled=false;btn.textContent='Pedir a história ao Claude'}}
+
+/* ---------- Visualizador ---------- */
+const V=$('#viewer');let vs=null;
+function openViewer(pid,i){vs={pid,i};renderViewer()}
+function renderViewer(edit){
+  const list=photosOf.get(vs.pid)||[];if(!list.length){V.classList.remove('on');return}
+  vs.i=(vs.i+list.length)%list.length;const ph=list[vs.i],p=byId.get(vs.pid);
+  V.innerHTML=`<div class="img"><img src="${esc(urlOf(ph))}" alt="${esc(ph.caption||p.n)}">${list.length>1?'<button class="nav l" id="vl" aria-label="Anterior">‹</button><button class="nav r" id="vr" aria-label="Próxima">›</button>':''}<div class="vtop"><button class="iconbtn" id="vx" aria-label="Fechar">×</button></div></div>
+  <div class="info"><h4>${esc(p.n)}</h4><p style="opacity:.8;font-style:italic">${fmtDate(ph.takenAt)} · foto ${vs.i+1} de ${list.length}</p>
+  ${edit==='cap'?`<textarea id="vcap">${esc(ph.caption||'')}</textarea><div class="acts"><button class="btn p" id="vsave">Salvar</button><button class="btn" id="vcan">Cancelar</button></div>`
+  :edit==='place'?`<select id="vpl">${PL.map(q=>`<option value="${esc(q.id)}"${q.id===vs.pid?' selected':''}>${esc(q.n)}</option>`).join('')}</select><div class="acts"><button class="btn p" id="vsave2">Mover</button><button class="btn" id="vcan">Cancelar</button></div>`
+  :`${ph.caption?`<p>${esc(ph.caption)}</p>`:''}${S.canAdd?'<div class="acts"><button class="btn" id="vec">Legenda</button><button class="btn" id="vep">Mudar lugar</button><button class="btn" id="vdel">Apagar</button></div>':''}`}</div>`;
+  V.classList.add('on');
+  const on=(id,fn)=>{const b=document.getElementById(id);if(b)b.onclick=fn};
+  on('vx',()=>V.classList.remove('on'));on('vl',()=>{vs.i--;renderViewer()});on('vr',()=>{vs.i++;renderViewer()});
+  on('vec',()=>renderViewer('cap'));on('vep',()=>renderViewer('place'));on('vcan',()=>renderViewer());
+  on('vsave',async()=>{try{await S.updatePhoto(ph.id,{caption:$('#vcap').value.trim()});renderViewer()}catch{toast('Não deu para salvar.')}});
+  on('vsave2',async()=>{const np=$('#vpl').value,q=byId.get(np);try{await S.updatePhoto(ph.id,{placeId:np,lat:q.lat,lon:q.lon});V.classList.remove('on');openPlace(np)}catch{toast('Não deu para mover.')}});
+  on('vdel',async()=>{if(!await ask('Apagar esta foto do diário? Não dá para desfazer.','Apagar'))return;try{await S.deletePhoto(ph);if((photosOf.get(vs.pid)||[]).length)renderViewer();else V.classList.remove('on')}catch{toast('Não deu para apagar.')}});
+}
+addEventListener('keydown',e=>{if(!V.classList.contains('on'))return;if(e.key==='Escape')V.classList.remove('on');if(e.key==='ArrowLeft'){vs.i--;renderViewer()}if(e.key==='ArrowRight'){vs.i++;renderViewer()}});
+
+/* ---------- Jornada ---------- */
+const T=$('#tour');
+const CERT={'Confirmado':'Confirmado: arqueologia e fontes antigas apontam para este mesmo lugar.','Provável':'Provável: há bons indícios, mas não prova definitiva.','Tradicional':'Tradicional: lugar apontado pela tradição há séculos, sem confirmação arqueológica.','Debatido':'Debatido: os especialistas discordam sobre onde foi.'};
+$('#tourBtn').onclick=()=>{
+  curPlace=null;formOpen=false;const n=stops().length;
+  openSheet(`<div class="shead"><h2>Jornadas</h2><button class="close" data-act="close" aria-label="Fechar">×</button></div>
+  <p class="meta">O mapa voa de parada em parada e conta a história.</p>
+  <div class="list"><h3>Sua viagem</h3><button class="row" data-act="jr" data-v="fotos"><span class="mk">✕</span><span class="nm">Minhas fotos, na ordem da viagem</span><span class="ct">${n?n+' parada'+(n>1?'s':''):'sem fotos ainda'}</span></button>
+  <h3>Jornadas guiadas</h3>${JOURNEYS.map(j=>`<button class="row" data-act="jr" data-v="${j.id}"><span class="mk">›</span><span class="nm">${esc(j.t)}<br><i style="color:var(--muted);font-size:14px">${esc(j.d)}</i></span><span class="ct">${j.st.length} paradas</span></button>`).join('')}</div>`)};
+sheet.addEventListener('click',e=>{const b=e.target.closest('[data-act="jr"]');if(!b)return;startJourney(b.dataset.v)});
+function startJourney(id){
+  let st,guided=false,title='';
+  if(id==='fotos'){st=stops();if(!st.length){toast('Adicione fotos para a sua jornada aparecer aqui.');return}}
+  else{const j=JOURNEYS.find(x=>x.id===id);guided=true;title=j.t;st=j.st.map(([pid,text,ref])=>({place:byId.get(pid)||PL.find(p=>p.id===pid)||SITES.find(p=>p.id===pid),photos:photosOf.get(pid)||[],text,ref})).filter(s=>s.place)}
+  closeSheet();tour={st,i:0,play:true,timer:0,slide:0,ps:0,guided,title,day0:guided?0:new Date(st[0].photos[0].takenAt).setHours(0,0,0,0)};document.body.classList.add('touring');showStop(0)}
+function showStop(i){
+  clearTimeout(tour.timer);clearInterval(tour.slide);tour.i=i;tour.ps=0;const s=tour.st[i],p=s.place,ph=s.photos[0];
+  const first=(p.s||'').split(/(?<=\.)\s/)[0];
+  const ctl=`<div class="tctl"><button class="btn" id="tp" aria-label="Anterior">‹</button><button class="btn" id="tpl">${tour.play?'Pausar':'Continuar'}</button><button class="btn" id="tn" aria-label="Próxima">›</button><span class="sp">${i+1} / ${tour.st.length}</span><button class="btn q" id="tx">Sair</button></div>`;
+  if(tour.guided){
+    T.innerHTML=`<div class="tcard">${ph?`<div class="ph"><img id="timg" src="${esc(urlOf(ph))}" alt=""><span class="day">${esc(tour.title)}</span></div>`:`<div class="jhead"><span>${esc(tour.title)}</span><b>Parada ${i+1}</b></div>`}
+    <div class="tx"><h3>${esc(p.n)}</h3><p style="color:var(--muted);font-style:italic">${esc(s.ref)}${p.c?` · ${esc(p.c)}`:''}</p><p>${esc(s.text)}</p></div>${ctl}</div>`;
+  }else{
+    const day=Math.round((new Date(ph.takenAt).setHours(0,0,0,0)-tour.day0)/864e5)+1;
+    T.innerHTML=`<div class="tcard"><div class="ph"><img id="timg" src="${esc(urlOf(ph))}" alt=""><span class="day">Dia ${day}</span></div>
+    <div class="tx"><h3>${esc(p.n)}</h3><p style="color:var(--muted);font-style:italic">${fmtDate(ph.takenAt)}${s.photos.length>1?` · ${s.photos.length} fotos`:''}</p><p id="tcap">${esc(ph.caption||first)}</p></div>${ctl}</div>`;
+  }
+  $('#tp').onclick=()=>{if(tour.i>0)showStop(tour.i-1)};$('#tn').onclick=()=>next();$('#tx').onclick=endTour;
+  $('#tpl').onclick=()=>{tour.play=!tour.play;$('#tpl').textContent=tour.play?'Pausar':'Continuar';clearTimeout(tour.timer);if(tour.play)arm()};
+  if(s.photos.length>1)tour.slide=setInterval(()=>{tour.ps=(tour.ps+1)%s.photos.length;const q=s.photos[tour.ps];const im=$('#timg');if(im){im.style.opacity=0;setTimeout(()=>{im.src=urlOf(q);im.style.opacity=1},300)}const c=$('#tcap');if(c)c.textContent=q.caption||first},2600);
+  const prev=i?tour.st[i-1].place:null;
+  if(V3.on&&(inHL(p)||V3.inGR(p)))V3.fly(p,prev);
+  else flyTo(prev&&km(prev.lat,prev.lon,p.lat,p.lon)>.05?camFit([[prev.lat,prev.lon],[p.lat,p.lon]],80,p.z):camFor(p.lat,p.lon,Math.max(p.z*.7,4)),RM?0:1600);
+  schedule();if(tour.play)arm();
+}
+function arm(){const s=tour.st[tour.i];tour.timer=setTimeout(next,tour.guided?Math.max(8000,(s.text||'').length*70):Math.max(6500,s.photos.length*2600+1500))}
+function next(){if(tour.i<tour.st.length-1){showStop(tour.i+1);return}
+  clearInterval(tour.slide);let msg;
+  if(tour.guided)msg=`${tour.st.length} paradas percorridas. Toque num lugar do mapa para ler a história completa.`;
+  else{const days=Math.round((new Date(tour.st.at(-1).photos[0].takenAt).setHours(0,0,0,0)-tour.day0)/864e5)+1;msg=`${tour.st.length} parada${tour.st.length>1?'s':''} em ${days} dia${days>1?'s':''}. O tesouro está nas lembranças.`}
+  T.innerHTML=`<div class="tcard"><div class="tx" style="padding:16px"><h3>Fim da jornada</h3><p>${msg}</p></div><div class="tctl"><button class="btn p" id="tr">Ver de novo</button><span class="sp"></span><button class="btn q" id="tx">Sair</button></div></div>`;
+  $('#tr').onclick=()=>{tour.play=true;showStop(0)};$('#tx').onclick=endTour;
+  if(!(V3.on&&(tour.st.every(s=>inHL(s.place))||tour.st.every(s=>V3.inGR(s.place)))))flyTo(camFit(tour.st.map(s=>[s.place.lat,s.place.lon]),80,20),1600);else V3.overview(tour.st.map(s=>s.place))}
+function endTour(){clearTimeout(tour.timer);clearInterval(tour.slide);tour=null;document.body.classList.remove('touring');schedule()}
+
+/* ---------- Ano 30 d.C. e regiões da época ---------- */
+let HL=null,hlP=null;
+const RULER={antipas:['#b5654a','Herodes Antipas'],philip:['#6f8f52','Filipe, o tetrarca'],prefect:['#8a2f22','Prefeito romano (Pôncio Pilatos)'],decapolis:['#5f769c','Decápole (cidades gregas)'],nabataea:['#c49a4a','Reino Nabateu'],syria:['#8f8a70','Província da Síria']};
+function loadHL(){return hlP||(hlP=fetch('holyland.json').then(r=>r.json()).then(j=>{
+  const bin=atob(j.dem),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);j.el=new Int16Array(u8.buffer);
+  const mb=atob(j.mask);j.mk=new Uint8Array(mb.length);for(let i=0;i<mb.length;i++)j.mk[i]=mb.charCodeAt(i);
+  HL=j;
+  const rg=j.regions.filter(r=>r.id!=='SYRIA').map(r=>`<path d="${pathOf(r.ring.map(([lo,la])=>[la,lo]),1)}" fill="${(RULER[r.ru]||RULER.syria)[0]}" fill-opacity=".16" stroke="${(RULER[r.ru]||RULER.syria)[0]}" stroke-opacity=".8" stroke-width="1.6" stroke-dasharray="6 4" vector-effect="non-scaling-stroke"/>`).join('');
+  $('#regions30').innerHTML=rg;
+  j.labels.forEach(l=>{if(l.n!=='SYRIA')LABELS.push({n:l.n==='SYRIA'?'SÍRIA':l.n,lat:l.lat,lon:l.lon,a:.05,b:1.8,c:'r',o30:1})});
+  j.lakes.filter(l=>l.id==='huleh').forEach(l=>{$('#huleh').setAttribute('d',pathOf(l.ring.map(([lo,la])=>[la,lo]),1))});
+  schedule();return j}).catch(()=>{hlP=null;return null}))}
+function setEra(on){
+  ERA30=on;document.body.classList.toggle('era30',on);$('#eraNow').setAttribute('aria-pressed',String(!on));$('#era30').setAttribute('aria-pressed',String(on));
+  $('.cart p').textContent=on?'Terra Santa · ano 30 d.C.':'Diário de viagem · Grécia e Terra Santa';
+  $('#legend').classList.remove('min');clearTimeout(setEra.t);if(on)setEra.t=setTimeout(()=>$('#legend').classList.add('min'),7000);
+  $('#legend').innerHTML=on?'<b>Quem governava ▾</b>'+Object.values(RULER).map(([c,n])=>`<span><i style="background:${c}"></i>${esc(n)}</span>`).join('')+'<small>Regiões aproximadas, c. 30 d.C. (Messiah Land Map, CC BY 4.0)</small>':'';
+  if(on)loadHL();rebuild();schedule();if(V3.on)V3.relabel();
+  if(curPlace&&document.body.classList.contains('sheet-open')&&!formOpen){const p=byId.get(curPlace);if(p)showPlace(p,false);else closeSheet()}
+  if(on&&!V3.on&&cam.k<.05)flyTo(camFit([[33.2,34.6],[31.2,35.8]],30));
+}
+$('#legend').onclick=()=>$('#legend').classList.toggle('min');$('#eraNow').onclick=()=>setEra(false);$('#era30').onclick=()=>setEra(true);
+
+/* ---------- Vista 3D com relevo (Terra Santa) ---------- */
+const inHL=p=>p&&p.lon>34.25&&p.lon<36.45&&p.lat>30.65&&p.lat<33.7;
+const V3={on:false,ready:false};
+{
+  const THREE_URL='https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js',CTRL_URL='https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js';
+  const box=$('#v3d'),lay=$('#v3l');let world='hl',sceneHL=null,sceneGR=null,sunHL=null,sunGR=null,WP={},R3,scene,camera,controls,EXG=1.8,LO0,LA0,KXL,dirty=true,anim=null,labels=[],regLines=null,hulehMesh=null;
+  const toV=(lon,lat,h)=>new THREE.Vector3((lon-LO0)*KXL,h/1000*EXG,-(lat-LA0)*111.32);
+  const hAt=(lon,lat)=>world==='gr'?grGround(lon,lat):hHL(lon,lat);
+  function hHL(lon,lat){const {b,nx,ny,el,mk}=HL;const fx=(lon-b.w)/(b.e-b.w)*(nx-1),fy=(b.n-lat)/(b.n-b.s)*(ny-1);
+    const i=Math.max(0,Math.min(nx-2,Math.floor(fx))),j=Math.max(0,Math.min(ny-2,Math.floor(fy))),u=Math.min(1,Math.max(0,fx-i)),v=Math.min(1,Math.max(0,fy-j));
+    const g=(a,c)=>{const k=c*nx+a;return mk[k]===1?0:el[k]};return (g(i,j)*(1-u)+g(i+1,j)*u)*(1-v)+(g(i,j+1)*(1-u)+g(i+1,j+1)*u)*v}
+  const STOPS=[[-430,[.42,.52,.34]],[-150,[.5,.58,.36]],[0,[.6,.64,.42]],[250,[.7,.7,.47]],[600,[.8,.7,.48]],[900,[.7,.55,.37]],[1400,[.56,.44,.3]],[2200,[.76,.7,.6]],[2800,[.95,.93,.88]]];
+  const colAt=e=>{for(let i=1;i<STOPS.length;i++)if(e<=STOPS[i][0]){const [e0,c0]=STOPS[i-1],[e1,c1]=STOPS[i],t=(e-e0)/(e1-e0);return c0.map((c,k)=>c+(c1[k]-c)*t)}return STOPS.at(-1)[1]};
+  /* ---- Kit de construção (Grécia) e realismo ---- */
+  function makeKit(sc,gnd,cap){
+    const dm=new THREE.Object3D(),cc=new THREE.Color();
+    const prism=new THREE.BufferGeometry();{const P=[-.5,0,-.5,.5,0,-.5,.5,0,.5,-.5,0,.5,-.5,1,0,.5,1,0];const I=[0,1,5,0,5,4,3,4,5,3,5,2,0,4,3,1,2,5,0,3,2,0,2,1];prism.setAttribute('position',new THREE.Float32BufferAttribute(P,3));prism.setIndex(I);prism.computeVertexNormals();}
+    const mk=(geo,n)=>{const m=new THREE.InstancedMesh(geo,new THREE.MeshLambertMaterial({color:0xffffff}),n);m.setColorAt(0,new THREE.Color(1,1,1));m.castShadow=m.receiveShadow=true;m.count=0;sc.add(m);return m};
+    const B=mk(new THREE.BoxGeometry(1,1,1),cap),C=mk(new THREE.CylinderGeometry(1,1,1,8),Math.round(cap*.5)),R=mk(prism,Math.round(cap*.7)),T=mk(new THREE.IcosahedronGeometry(1,0),Math.round(cap*.4)),Cy=mk(new THREE.ConeGeometry(1,1,6),Math.round(cap*.15));
+    const put=(m,lon,lat,y,sx,sy,sz,rot,c)=>{if(m.count>=m.instanceMatrix.count)return;dm.position.copy(toV(lon,lat,y));dm.rotation.set(0,rot||0,0);dm.scale.set(sx/1000,sy/1000*EXG,sz/1000);dm.updateMatrix();m.setMatrixAt(m.count,dm.matrix);cc.setRGB(c[0],c[1],c[2]);m.setColorAt(m.count,cc);m.count++};
+    const K={B,C,R,T,
+      box:(lon,lat,wx,wz,h,rot,c,base)=>{const g=base!=null?base:gnd(lon,lat)-1.5;put(B,lon,lat,g+h/2,wx,h,wz,rot,c);return g+h},
+      col:(lon,lat,r,h,base,c)=>put(C,lon,lat,base+h/2,r*2,h,r*2,0,c),
+      roof:(lon,lat,len,wid,h,rot,base,c)=>put(R,lon,lat,base,len,h,wid,rot,c),
+      tree:(lon,lat,r,c)=>{const g=gnd(lon,lat);put(T,lon,lat,g+r*.9,r*2,r*1.6,r*2,rnd()*6,c)},
+      cypress:(lon,lat,h)=>{const g=gnd(lon,lat);put(Cy,lon,lat,g+h/2,2.6,h,2.6,0,[.24+rnd()*.05,.34+rnd()*.05,.2])},
+      done:()=>{for(const m of [B,C,R,T,Cy]){m.instanceMatrix.needsUpdate=true;if(m.instanceColor)m.instanceColor.needsUpdate=true}}};
+    const ML=111320,MO=111320*Math.cos(LA0*RAD);
+    K.at=(c,dE,dN)=>[c[0]+dN/ML,c[1]+dE/MO];
+    /* templo grego: períptero com colunas, entablamento e frontão */
+    K.temple=(c,len,wid,nE,nS,colH,o={})=>{const base=(o.base!=null?o.base:gnd(c[1],c[0]))+(o.podium||0);const M=o.c||[.94,.92,.86];
+      if(o.podium)K.box(c[1],c[0],len+4,wid+4,o.podium+1.5,0,[.85,.82,.74],base-o.podium-1.5);
+      K.box(c[1],c[0],len,wid,1.6,0,M,base);const b2=base+1.6,r=Math.min(1,len/60)*.9+.1*1;
+      for(let i=0;i<nS;i++){const e=-len/2+1.5+i*(len-3)/(nS-1);[[e,wid/2-1.3],[e,-wid/2+1.3]].forEach(([x,y])=>{const p=K.at(c,x,y);K.col(p[1],p[0],r,colH,b2,M)})}
+      for(let i=1;i<nE-1;i++){const n=-wid/2+1.3+i*(wid-2.6)/(nE-1);[[len/2-1.5,n],[-len/2+1.5,n]].forEach(([x,y])=>{const p=K.at(c,x,y);K.col(p[1],p[0],r,colH,b2,M)})}
+      K.box(c[1],c[0],len*.7,wid*.62,colH,0,[.9,.87,.8],b2);
+      const top=K.box(c[1],c[0],len,wid,colH*.28,0,M,b2+colH);K.roof(c[1],c[0],len,wid,wid*.17,0,top,o.roof||[.86,.82,.74]);return top};
+    /* stoa: pórtico com parede ao fundo, colunata e telhado */
+    K.stoa=(c,len,dep,h,rot,o={})=>{const base=o.base!=null?o.base:gnd(c[1],c[0]);const M=o.c||[.92,.89,.82];const ce=Math.cos(rot),se=Math.sin(rot);
+      const loc=(a,b)=>K.at(c,a*ce+b*se,a*se-b*ce);
+      let p=loc(0,-dep/2+1.2);K.box(p[1],p[0],len,2.4,h,rot,[.86,.82,.72],base);
+      const n=Math.round(len/4.2);for(let i=0;i<n;i++){const a=-len/2+2+i*(len-4)/(n-1);p=loc(a,dep/2-1);K.col(p[1],p[0],.45,h-1,base,M);if(o.two){p=loc(a,dep/2-1);}}
+      if(o.two){p=loc(0,0);K.box(p[1],p[0],len,dep,.8,rot,M,base+h/2)}
+      K.box(c[1],c[0],len,dep,1.1,rot,M,base+h-1);K.roof(c[1],c[0],len,dep,dep*.2,rot,base+h+.1,o.roof||[.7,.42,.28])};
+    K.wall=(pts,th,h,c,tw,broken)=>{for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i],L=Math.hypot((b[1]-a[1])*MO,(b[0]-a[0])*ML),n=Math.max(1,Math.round(L/35)),rot=-Math.atan2(-(b[0]-a[0])*ML,(b[1]-a[1])*MO);
+      for(let s=0;s<n;s++){if(broken&&rnd()<.45)continue;const t=(s+.5)/n;K.box(a[1]+(b[1]-a[1])*t,a[0]+(b[0]-a[0])*t,L/n+.5,th,broken?h*(.4+rnd()*.6):h,rot,c)}
+      if(!broken){const nt=Math.max(1,Math.round(L/90));for(let s=0;s<=nt;s++){const t=s/nt;K.box(a[1]+(b[1]-a[1])*t,a[0]+(b[0]-a[0])*t,tw,tw,h+5,rot,c)}}}};
+    K.cavea=(c,rIn,rOut,rise,face)=>{const g=gnd(c[1],c[0]);const steps=9;for(let s=0;s<steps;s++){const r0=rIn+(rOut-rIn)*s/steps,r1=rIn+(rOut-rIn)*(s+1)/steps;const geo=new THREE.CylinderGeometry(r1/1000,r1/1000,(rise*(s+1)/steps)/1000*EXG,24,1,false,face-Math.PI/2,Math.PI);
+      const m=new THREE.Mesh(geo,new THREE.MeshLambertMaterial({color:s%2?0xd8ccb0:0xe4d9bf}));m.castShadow=m.receiveShadow=true;m.position.copy(toV(c[1],c[0],g+rise*(s+1)/steps/2-1));sc.add(m)}
+      const st=K.at(c,Math.cos(face+Math.PI/2)*(rIn+6),-Math.sin(face+Math.PI/2)*(rIn+6));};
+    K.round=(c,r,h,base,nc,c1)=>{for(let i=0;i<nc;i++){const a=i/nc*6.283,p=K.at(c,Math.cos(a)*r,Math.sin(a)*r);K.col(p[1],p[0],.4,h,base,c1)}const m=new THREE.Mesh(new THREE.ConeGeometry((r+1)/1000,2.5/1000*EXG,16),new THREE.MeshLambertMaterial({color:0xcfc6b0}));m.position.copy(toV(c[1],c[0],base+h+1.2));m.castShadow=true;sc.add(m)};
+    K.houses=(poly,n,smin,smax,o={})=>{const lats=poly.map(p=>p[0]),lons=poly.map(p=>p[1]),la0=Math.min(...lats),la1=Math.max(...lats),lo0=Math.min(...lons),lo1=Math.max(...lons);const occ=K.occ||(K.occ=new Set());
+      for(let k=0;k<n*8&&n>0;k++){let lat=la0+rnd()*(la1-la0),lon=lo0+rnd()*(lo1-lo0);if(!inPoly(lon,lat,poly)||(o.excl&&o.excl.some(p=>inPoly(lon,lat,p))))continue;if(o.sea&&o.sea(lon,lat))continue;
+        const cs=smax*.85,key=Math.round(lon*MO/cs)+':'+Math.round(lat*ML/cs);if(occ.has(key))continue;occ.add(key);
+        const w=smin+rnd()*(smax-smin),d=smin+rnd()*(smax-smin),h=3.5+rnd()*2.5,rot=(o.rot||0)+(rnd()-.5)*.12,wc=.84+rnd()*.08;const top=K.box(lon,lat,w,d,h,rot,[wc,wc-.05,wc-.15]);
+        const rc=.62+rnd()*.08;K.roof(lon,lat,w,d,1.8+rnd(),rot,top,[rc,rc*.55,rc*.36]);n--}};
+    return K;
+  }
+  /* céu em degradê e sombras do sol */
+  function addSky(sc,top,hor){const g=new THREE.SphereGeometry(2500,24,12),c=[],p=g.attributes.position;const a=new THREE.Color(top),b=new THREE.Color(hor);
+    for(let i=0;i<p.count;i++){const t=Math.max(0,p.getY(i)/2500);const k=Math.pow(t,.55);c.push(b.r+(a.r-b.r)*k,b.g+(a.g-b.g)*k,b.b+(a.b-b.b)*k)}
+    g.setAttribute('color',new THREE.Float32BufferAttribute(c,3));const m=new THREE.Mesh(g,new THREE.MeshBasicMaterial({vertexColors:true,side:THREE.BackSide,fog:false,depthWrite:false}));m.renderOrder=-1;sc.add(m);return m}
+  function addSun(sc){sc.add(new THREE.HemisphereLight(0xfff4dc,0x5a4a32,.55));const s=new THREE.DirectionalLight(0xfff2dc,1.1);s.position.set(-70,55,-45);s.shadow.mapSize.set(2048,2048);s.shadow.bias=-.0004;s.shadow.normalBias=.02;sc.add(s);sc.add(s.target);return s}
+  /* ---- Grécia, ano 50 d.C. ---- */
+  let GR=null,grP=null;
+  function loadGR(){return grP||(grP=fetch('greece.json').then(r=>r.json()).then(j=>{const bin=atob(j.dem),u8=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u8[i]=bin.charCodeAt(i);j.el=new Int16Array(u8.buffer);const mb=atob(j.mask);j.mk=new Uint8Array(mb.length);for(let i=0;i<mb.length;i++)j.mk[i]=mb.charCodeAt(i);GR=j;return j}).catch(()=>{grP=null;return null}))}
+  function grRaw(lon,lat){const {b,nx,ny,el,mk}=GR;const fx=(lon-b.w)/(b.e-b.w)*(nx-1),fy=(b.n-lat)/(b.n-b.s)*(ny-1);const i=Math.max(0,Math.min(nx-2,Math.floor(fx))),j=Math.max(0,Math.min(ny-2,Math.floor(fy))),u=Math.min(1,Math.max(0,fx-i)),v=Math.min(1,Math.max(0,fy-j));
+    const g=(a,c)=>{const k=c*nx+a;return mk[k]===1?-8:el[k]};return (g(i,j)*(1-u)+g(i+1,j)*u)*(1-v)+(g(i,j+1)*(1-u)+g(i+1,j+1)*u)*v}
+  const grSea=(lon,lat)=>{const {b,nx,ny,mk}=GR;const i=Math.round((lon-b.w)/(b.e-b.w)*(nx-1)),j=Math.round((b.n-lat)/(b.n-b.s)*(ny-1));return mk[j*nx+i]===1};
+  const AB={w:23.700,e:23.762,s:37.950,n:37.992},CB={w:22.835,e:22.905,s:37.876,n:37.926};
+  const gauss=(lon,lat,c,h,r,pw=2)=>{const d=Math.hypot((lon-c[1])*94500*.906/.85,(lat-c[0])*111320);return h*Math.exp(-Math.pow(d/r,pw))};
+  const plateau=(lon,lat,c,ax,ay,top,fall)=>{const dx=(lon-c[1])*87900/ax,dy=(lat-c[0])*111320/ay;const f=Math.pow(dx**4+dy**4,.25);return f<1?top-3*f*f:top-(top)*smooth((f-1)/fall)};
+  function athH(lon,lat){let h=62+(lat-37.975)*111320*.006+(lon-23.725)*87900*.002;
+    h-=12*Math.exp(-((dLine(lon,lat,[[37.9780,23.7480],[37.9690,23.7380],[37.9650,23.7250]])/80)**2));
+    const hills=[plateau(lon,lat,[37.97153,23.72625],150,72,156,.5),plateau(lon,lat,[37.9722,23.7232],80,40,115,.6),gauss(lon,lat,[37.9673,23.7212],147,280),gauss(lon,lat,[37.9718,23.7197],110,200),gauss(lon,lat,[37.9745,23.7190],105,160),gauss(lon,lat,[37.9757,23.7214],70,90),gauss(lon,lat,[37.9819,23.7437],277,330,1.5),gauss(lon,lat,[37.9800,23.7330],95,450)];
+    for(const v of hills)h=Math.max(h,v);return h}
+  function corH(lon,lat){let h=25+(37.925-lat)*111320*.028;h=Math.max(h,plateau(lon,lat,[37.8890,22.8690],520,420,575,1.1));h=Math.max(h,gauss(lon,lat,[37.9061,22.8788],92,110));return h}
+  function patchH(lon,lat,P,fn){const ex=Math.min(lon-P.w,P.e-lon)/(P.e-P.w),ey=Math.min(lat-P.s,P.n-lat)/(P.n-P.s),m=smooth(Math.min(ex,ey)/.14);return Math.max(grRaw(lon,lat),0)*(1-m)+fn(lon,lat)*m}
+  const inB=(lon,lat,P)=>lon>P.w&&lon<P.e&&lat>P.s&&lat<P.n;
+  function grGround(lon,lat){if(inB(lon,lat,AB))return patchH(lon,lat,AB,athH);if(inB(lon,lat,CB))return patchH(lon,lat,CB,corH);return Math.max(grRaw(lon,lat),0)}
+  const GSTOP=[[0,[.56,.6,.4]],[120,[.6,.62,.42]],[350,[.58,.57,.41]],[700,[.55,.52,.41]],[1100,[.63,.61,.56]],[1500,[.78,.76,.71]]];
+  const gcol=e=>{for(let i=1;i<GSTOP.length;i++)if(e<=GSTOP[i][0]){const [e0,c0]=GSTOP[i-1],[e1,c1]=GSTOP[i],t=(e-e0)/(e1-e0);return c0.map((c,k)=>c+(c1[k]-c)*t)}return GSTOP.at(-1)[1]};
+  function terrainMesh(sc,B,nx,ny,hf,colf){const pos=new Float32Array(nx*ny*3),col=new Float32Array(nx*ny*3);
+    for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const k=j*nx+i,lon=B.w+i*(B.e-B.w)/(nx-1),lat=B.n-j*(B.n-B.s)/(ny-1),h=hf(lon,lat),v=toV(lon,lat,h);pos[k*3]=v.x;pos[k*3+1]=v.y;pos[k*3+2]=v.z;const c=colf(h,lon,lat),n=.95+rnd()*.08;col[k*3]=c[0]*n;col[k*3+1]=c[1]*n;col[k*3+2]=c[2]*n}
+    const idx=new Uint32Array((nx-1)*(ny-1)*6);let q=0;for(let j=0;j<ny-1;j++)for(let i=0;i<nx-1;i++){const a=j*nx+i,bb=a+1,c=a+nx,d=c+1;idx[q++]=a;idx[q++]=c;idx[q++]=bb;idx[q++]=bb;idx[q++]=c;idx[q++]=d}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('color',new THREE.BufferAttribute(col,3));g.setIndex(new THREE.BufferAttribute(idx,1));g.computeVertexNormals();
+    const m=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true}));m.receiveShadow=true;sc.add(m);return m}
+  function buildGR(sc){
+    const {b,nx,ny}=GR;
+    terrainMesh(sc,b,nx,ny,(lon,lat)=>{if(grSea(lon,lat))return -40;const inner=(P)=>lon>P.w+.006&&lon<P.e-.006&&lat>P.s+.006&&lat<P.n-.006;return grRaw(lon,lat)-(inner(AB)||inner(CB)?220:0)},(h,lon,lat)=>grSea(lon,lat)?[.45,.55,.6]:gcol(h));
+    terrainMesh(sc,AB,250,170,(lon,lat)=>patchH(lon,lat,AB,athH),(h,lon,lat)=>{const r=h>140?[.8,.76,.66]:gcol(h);return r});
+    terrainMesh(sc,CB,240,180,(lon,lat)=>patchH(lon,lat,CB,corH),(h)=>h>300?[.72,.68,.6]:gcol(h));
+    const sea=new THREE.Mesh(new THREE.PlaneGeometry(800,500),new THREE.MeshPhongMaterial({color:0x3a6578,specular:0x1c2a33,shininess:18}));sea.rotation.x=-Math.PI/2;sea.position.y=.4/1000*EXG;sea.receiveShadow=true;sc.add(sea);
+    seed=11;const K=makeKit(sc,grGround,9000);const M=[.94,.92,.86];
+    /* Acrópole */
+    const ACR=156;
+    K.temple([37.97153,23.72658],69.5,30.9,8,17,10.4,{base:ACR});
+    K.box(23.72627,37.97206,23,12,9,0,M,ACR-3);K.roof(23.72627,37.97206,23,12,2.2,0,ACR+6,[.86,.82,.74]);[0,1,2,3,4,5].forEach(i=>{const p=K.at([37.97206,23.72627],12.5,-5+i*2);K.col(p[1],p[0],.4,6.5,ACR-3,M)});
+    K.box(23.72482,37.97163,24,18,11,0,M,ACR-6);K.roof(23.72482,37.97163,24,18,3,Math.PI/2,ACR+5,[.86,.82,.74]);K.box(23.72470,37.97185,14,9,7,0,M,ACR-6);K.box(23.72470,37.97140,10,9,7,0,M,ACR-6);
+    K.box(23.72550,37.97170,2,2,16,0,[.55,.42,.25],ACR);K.round([37.97155,23.72738],3.8,7,ACR,9,M);
+    K.wall([[37.97225,23.72480],[37.97240,23.72600],[37.97220,23.72760],[37.97170,23.72800],[37.97090,23.72760],[37.97080,23.72600],[37.97110,23.72500]],2.5,5,[.82,.78,.68],3);
+    /* encosta sul: teatro de Dioniso, Odeion de Péricles, Stoa de Êumenes */
+    K.cavea([37.97060,23.72775],12,58,24,0);K.box(23.72770,37.96995,40,8,7,0,[.86,.82,.72]);
+    const op=[37.97040,23.72870];K.box(op[1],op[0],60,60,11,0,[.84,.8,.7]);{const m=new THREE.Mesh(new THREE.ConeGeometry(43/1000,12/1000*EXG,4),new THREE.MeshLambertMaterial({color:0xa86a48}));m.rotation.y=Math.PI/4;m.position.copy(toV(op[1],op[0],grGround(op[1],op[0])+15));m.castShadow=true;sc.add(m)}
+    K.stoa([37.97038,23.72610],163,18,12,0,{two:1});
+    /* Ágora */
+    K.stoa([37.97502,23.72400],116,20,11,-Math.PI/2,{two:1});
+    K.stoa([37.97415,23.72265],147,17,8,0);K.stoa([37.97370,23.72250],90,15,7,0);
+    K.box(23.72258,37.97475,51,43,18,0,[.88,.84,.74]);K.roof(23.72258,37.97475,51,43,7,0,grGround(23.72258,37.97475)+16.5,[.7,.42,.28]);
+    K.temple([37.97561,23.72142],31.8,13.7,6,13,5.7);K.temple([37.97522,23.72262],34,16,6,13,6.2);
+    K.stoa([37.97548,23.72178],46,18,8,Math.PI/2);K.stoa([37.97632,23.72300],60,14,8,0);
+    K.box(23.72140,37.97482,22,22,10,0,[.86,.82,.72]);K.round([37.97462,23.72152],9,5,grGround(23.72152,37.97462),14,[.86,.82,.72]);
+    /* Ágora Romana e Torre dos Ventos */
+    const RA=[37.97455,23.72625];[[0,49,111,10,0],[0,-49,111,10,Math.PI],[55,0,98,10,-Math.PI/2],[-55,0,98,10,Math.PI/2]].forEach(([e,n,L,d,r])=>{const p=K.at(RA,e,n);K.stoa(p,L,d,7,r)});
+    [0,1,2,3].forEach(i=>{const p=K.at([37.97452,23.72560],0,-5+i*3.3);K.col(p[1],p[0],.6,8,grGround(p[1],p[0]),M)});K.box(23.72560,37.97452,3,12,2,0,M,grGround(23.7256,37.97452)+8);
+    {const tw=[37.97433,23.72726],g=grGround(tw[1],tw[0]);const m=new THREE.Mesh(new THREE.CylinderGeometry(4/1000,4/1000,12/1000*EXG,8),new THREE.MeshLambertMaterial({color:0xece6d6}));m.position.copy(toV(tw[1],tw[0],g+6));m.castShadow=true;sc.add(m);const r=new THREE.Mesh(new THREE.ConeGeometry(4.3/1000,2.5/1000*EXG,8),new THREE.MeshLambertMaterial({color:0xd6ccb4}));r.position.copy(toV(tw[1],tw[0],g+13.2));sc.add(r)}
+    /* Olimpieion inacabado, estádio de terra, Pnyx, Dípilo */
+    const OL=[37.96930,23.73310];K.box(OL[1],OL[0],110,44,3,0,[.86,.83,.74]);for(let i=0;i<22;i++){const e=-52+(i%11)*10.4,n=i<11?19:-19;const p=K.at(OL,e,n);K.col(p[1],p[0],1,i%3?3:8,grGround(OL[1],OL[0])+3,M)}
+    const SD=[37.96830,23.74100];[[-16,0],[16,0]].forEach(([e])=>{const p=K.at(SD,e,0);K.box(p[1],p[0],14,190,7,Math.PI/2*0,[.72,.64,.46])});
+    K.box(23.71960,37.97175,30,6,4,.3,[.8,.76,.66]);
+    K.box(23.71830,37.97830,30,14,10,.7,[.82,.78,.68]);[[-16,0],[16,0]].forEach(([e])=>{const p=K.at([37.97830,23.71830],e,0);K.box(p[1],p[0],10,10,15,.7,[.82,.78,.68])});
+    for(let i=0;i<60;i++){const la=37.97840+(rnd()-.5)*.0010,lo=23.71650+(rnd()-.5)*.0022;K.box(lo,la,1+rnd()*2,.5,1.4+rnd(),rnd(),[.88,.86,.8])}
+    /* caminho panatenaico */
+    const PW=[[37.97830,23.71830],[37.97700,23.72050],[37.97560,23.72300],[37.97380,23.72420],[37.97200,23.72450]];for(let i=1;i<PW.length;i++){const a=PW[i-1],c2=PW[i],n=10;for(let s=0;s<n;s++){const t=(s+.5)/n;K.box(a[1]+(c2[1]-a[1])*t,a[0]+(c2[0]-a[0])*t,(Math.hypot((c2[1]-a[1])*87900,(c2[0]-a[0])*111320))/n+1,9,.5,-Math.atan2(-(c2[0]-a[0])*111320,(c2[1]-a[1])*87900),[.86,.8,.66])}}
+    /* muralhas de Temístocles e Longos Muros (em ruínas em 50 d.C.) */
+    const AW=[[37.9790,23.7170],[37.9830,23.7230],[37.9842,23.7320],[37.9800,23.7400],[37.9712,23.7412],[37.9665,23.7330],[37.9642,23.7230],[37.9660,23.7142],[37.9716,23.7132],[37.9790,23.7170]];
+    K.wall(AW,4,9,[.8,.75,.64],9);
+    K.wall([[37.9660,23.7142],[37.9600,23.6950],[37.9540,23.6760],[37.9500,23.6600]],3,3,[.78,.72,.6],0,1);K.wall([[37.9690,23.7120],[37.9630,23.6930],[37.9570,23.6740],[37.9530,23.6560]],3,3,[.78,.72,.6],0,1);
+    const EX=[[[37.9732,23.7240],[37.9728,23.7290],[37.9700,23.7292],[37.9702,23.7238]],[[37.9765,23.7208],[37.9765,23.7245],[37.9730,23.7245],[37.9732,23.7208]],[[37.9752,23.7255],[37.9752,23.7270],[37.9740,23.7270],[37.9740,23.7255]],[[37.9735,23.7180],[37.9735,23.7215],[37.9655,23.7230],[37.9655,23.7180]],[[37.9705,23.7320],[37.9705,23.7345],[37.9680,23.7345],[37.9680,23.7320]]];
+    K.houses(AW,1500,8,14,{excl:EX,rot:.05});
+    /* Pireu */
+    const PI=[[37.9480,23.6390],[37.9500,23.6520],[37.9440,23.6640],[37.9360,23.6620],[37.9340,23.6480],[37.9410,23.6380]];K.houses(PI,520,8,13,{sea:grSea,rot:.3});
+    for(let i=0;i<26;i++){const a=-1.2+i*.09,p=K.at([37.9372,23.6510],Math.cos(a)*90,Math.sin(a)*90);K.box(p[1],p[0],40,6,4,-a,[.8,.74,.62]);K.roof(p[1],p[0],40,6,1.5,-a,grGround(p[1],p[0])+2.5,[.66,.38,.24])}
+    K.wall([[37.9480,23.6390],[37.9400,23.6360],[37.9330,23.6450],[37.9320,23.6600],[37.9400,23.6680]],3.5,8,[.8,.75,.64],8);
+    /* olivais e ciprestes */
+    for(let i=0;i<900;i++){const la=37.983+rnd()*.022,lo=23.690+rnd()*.035;if(inPoly(lo,la,AW))continue;K.tree(lo,la,3+rnd()*1.5,[.42+rnd()*.06,.48+rnd()*.06,.3])}
+    for(let i=0;i<120;i++){K.cypress(23.7120+rnd()*.008,37.9790+rnd()*.012,9+rnd()*6)}
+    /* Corinto */
+    const AP=[37.90610,22.87885];K.temple(AP,53.8,21.5,6,15,7.2);
+    const FO=[37.90550,22.88000],fg=grGround(FO[1],FO[0]);K.box(FO[1],FO[0],170,95,.6,0,[.86,.82,.72],fg-.3);
+    K.stoa([37.90480,22.88030],164,25,9,Math.PI,{base:fg});K.box(22.88010,37.90545,14,8,3,0,[.74,.79,.84],fg);
+    for(let i=0;i<14;i++){const p=K.at([37.90540,22.88000],-60+i*9.2,0);if(Math.abs(-60+i*9.2-1)<9)continue;K.box(p[1],p[0],8,7,4,0,[.84,.8,.7],fg)}
+    K.box(22.88140,37.90590,38,24,13,0,[.9,.86,.78],fg);K.roof(22.88140,37.90590,38,24,5,0,fg+13,[.7,.42,.28]);
+    K.temple([37.90640,22.87730],30,15,6,12,6.5,{podium:3});K.box(22.87975,37.90655,30,14,7,0,[.86,.82,.72]);
+    K.cavea([37.90660,22.87660],10,45,18,Math.PI);
+    for(let i=0;i<46;i++){const t=i/45,la=37.9068+t*.0085,lo=22.8801+t*.0029;[-5,5].forEach(e=>{const p=K.at([la,lo],e,0);K.col(p[1],p[0],.4,5,grGround(p[1],p[0]),M)});K.box(lo,la,7,11,.4,0,[.86,.8,.66])}
+    K.temple([37.88905,22.86870],18,10,4,7,5,{base:corH(22.8687,37.88905)});
+    const ring=[];for(let i=0;i<=24;i++){const a=i/24*6.283;ring.push([37.8890+Math.sin(a)*620/111320,22.8690+Math.cos(a)*720/87900])}K.wall(ring,4,7,[.78,.74,.64],8);
+    K.houses([[37.9140,22.8680],[37.9140,22.8930],[37.9000,22.8960],[37.8975,22.8800],[37.9000,22.8660]],950,8,13,{excl:[[[37.9070,22.8780],[37.9070,22.8830],[37.9040,22.8830],[37.9040,22.8780]],[[37.9075,22.8770],[37.9075,22.8800],[37.9055,22.8800],[37.9055,22.8770]],[[37.9150,22.8795],[37.9150,22.8835],[37.9065,22.8810],[37.9065,22.8795]]],rot:.02});
+    /* portos de Lecaion e Cencreia, diolkos e Ístmia */
+    {const w=new THREE.MeshPhongMaterial({color:0x3f6f86,shininess:40});[[37.9300,22.8880,180,90],[37.9285,22.8920,120,70]].forEach(([la,lo,a,b2])=>{const m=new THREE.Mesh(new THREE.BoxGeometry(a/1000,.5/1000*EXG,b2/1000),w);m.position.copy(toV(lo,la,1));sc.add(m)})}
+    [[37.9335,22.8870,160,1.4],[37.9338,22.8905,140,1.7]].forEach(([la,lo,L,r])=>K.box(lo,la,L,10,4,r,[.78,.72,.6],0));
+    [[37.8838,22.9915,160,.4],[37.8850,22.9945,140,-.7]].forEach(([la,lo,L,r])=>K.box(lo,la,L,10,4,r,[.78,.72,.6],0));K.houses([[37.8865,22.9880],[37.8865,22.9960],[37.8830,22.9960],[37.8830,22.9880]],70,8,12,{sea:grSea});
+    for(let i=0;i<40;i++){const t=(i+.5)/40;K.box(22.9585+(22.9985-22.9585)*t,37.9445+(37.9190-37.9445)*t,110,5,.6,.95,[.82,.76,.62])}
+    K.temple([37.91600,22.99340],54,24,6,13,7);K.box(22.99200,37.91640,190,28,1,0,[.76,.68,.5]);
+    K.done();
+  }
+
+  /* ---- Jerusalém c. 30 d.C. e cidades da época (reconstrução artística aproximada) ---- */
+  const TOWNSET=new Set(['natividade','betania','jerico','nazare','cana','cafarnaum','magdala','tiberiades','betsaida','corazim','naim','sicar','hebrom','emaus','banias','gadara','cesareia','jaffa','akko','sebaste','qumran','eingedi','herodium','maqueronte','pireu','corinto','cencreia','istmia','lecaion']);
+  const JB={w:35.205,e:35.262,s:31.752,n:31.800};
+  const inJ=(lon,lat)=>lon>JB.w&&lon<JB.e&&lat>JB.s&&lat<JB.n;
+  const MLON=94500,MLAT=111320;
+  const VAL=[[[[31.7900,35.2360],[31.7840,35.2385],[31.7800,35.2391],[31.7760,35.2386],[31.7720,35.2377],[31.7690,35.2366],[31.7655,35.2372]],95,170],
+    [[[31.7825,35.2300],[31.7795,35.2318],[31.7770,35.2333],[31.7735,35.2344],[31.7700,35.2350],[31.7685,35.2356]],42,110],
+    [[[31.7790,35.2250],[31.7750,35.2258],[31.7712,35.2268],[31.7692,35.2295],[31.7682,35.2335],[31.7676,35.2365]],85,150],
+    [[[31.7776,35.2280],[31.7770,35.2310],[31.7767,35.2335]],16,60]];
+  const dSeg=(lon,lat,a,b)=>{const ax=(a[1]-lon)*MLON,ay=(a[0]-lat)*MLAT,bx=(b[1]-lon)*MLON,by=(b[0]-lat)*MLAT,dx=bx-ax,dy=by-ay,L=dx*dx+dy*dy||1;let t=-(ax*dx+ay*dy)/L;t=Math.max(0,Math.min(1,t));return Math.hypot(ax+dx*t,ay+dy*t)};
+  const dLine=(lon,lat,pts)=>{let m=1e9;for(let i=1;i<pts.length;i++)m=Math.min(m,dSeg(lon,lat,pts[i-1],pts[i]));return m};
+  function Hj(lon,lat){let h=745+(lat-31.7770)*MLAT*.012;for(const [pts,dep,w] of VAL){const d=dLine(lon,lat,pts);h-=dep*Math.exp(-((d/w)**2))}
+    h+=95*Math.exp(-((((lon-35.2445)*MLON)/550)**2));h+=25*Math.exp(-((((lon-35.2290)*MLON)/350)**2))*(lat<31.7765?1:.4);return h}
+  let JOFF=0;
+  const smooth=t=>t<=0?0:t>=1?1:t*t*(3-2*t);
+  function JH(lon,lat){const ex=Math.min(lon-JB.w,JB.e-lon)/(JB.e-JB.w),ey=Math.min(lat-JB.s,JB.n-lat)/(JB.n-JB.s),m=smooth(Math.min(ex,ey)/.12);return Math.max(hAt(lon,lat),0)*(1-m)+(Hj(lon,lat)+JOFF)*m}
+  function hTri(lon,lat){const {b,nx,ny,el,mk}=HL;const fx=(lon-b.w)/(b.e-b.w)*(nx-1),fy=(b.n-lat)/(b.n-b.s)*(ny-1);const i=Math.max(0,Math.min(nx-2,Math.floor(fx))),j=Math.max(0,Math.min(ny-2,Math.floor(fy))),u=fx-i,v=fy-j;
+    const g=(a,c)=>{const k=c*nx+a;return mk[k]===1?-60:el[k]};const A=g(i,j),B=g(i+1,j),C=g(i,j+1),D=g(i+1,j+1);return u+v<=1?A+u*(B-A)+v*(C-A):D+(1-u)*(C-D)+(1-v)*(B-D)}
+  const ground=(lon,lat)=>inJ(lon,lat)?JH(lon,lat):Math.max(hTri(lon,lat),0);
+  const isSea=(lon,lat)=>{const {b,nx,ny,mk}=HL;const i=Math.round((lon-b.w)/(b.e-b.w)*(nx-1)),j=Math.round((b.n-lat)/(b.n-b.s)*(ny-1));return mk[j*nx+i]===1};
+  let seed=7;const rnd=()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+  const inPoly=(lon,lat,poly)=>{let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const [yi,xi]=poly[i],[yj,xj]=poly[j];if(((yi>lat)!=(yj>lat))&&(lon<(xj-xi)*(lat-yi)/(yj-yi)+xi))c=!c}return c};
+  function buildCities(){
+    JOFF=Math.max(hAt(35.2335,31.7770),0)-Hj(35.2335,31.7770);
+    /* relevo local de Jerusalém */
+    const nxj=230,nyj=225,pos=new Float32Array(nxj*nyj*3),col=new Float32Array(nxj*nyj*3);
+    for(let j=0;j<nyj;j++)for(let i=0;i<nxj;i++){const k=j*nxj+i,lon=JB.w+i*(JB.e-JB.w)/(nxj-1),lat=JB.n-j*(JB.n-JB.s)/(nyj-1),h=JH(lon,lat),v=toV(lon,lat,h);
+      pos[k*3]=v.x;pos[k*3+1]=v.y;pos[k*3+2]=v.z;let vd=0;for(const [pts,dep,w] of VAL)vd=Math.max(vd,Math.exp(-((dLine(lon,lat,pts)/w)**2))*dep/95);
+      const ol=Math.exp(-((((lon-35.2425)*MLON)/500)**2));const c=[.8-.16*vd-.1*ol,.72-.08*vd-.02*ol,.54-.1*vd-.08*ol];col[k*3]=c[0];col[k*3+1]=c[1];col[k*3+2]=c[2]}
+    const idx=new Uint32Array((nxj-1)*(nyj-1)*6);let q=0;for(let j=0;j<nyj-1;j++)for(let i=0;i<nxj-1;i++){const a=j*nxj+i,bb=a+1,c=a+nxj,d=c+1;idx[q++]=a;idx[q++]=c;idx[q++]=bb;idx[q++]=bb;idx[q++]=c;idx[q++]=d}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('color',new THREE.BufferAttribute(col,3));g.setIndex(new THREE.BufferAttribute(idx,1));g.computeVertexNormals();
+    {const pm2=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true}));pm2.receiveShadow=true;scene.add(pm2)}
+    /* blocos instanciados: casas, muralhas, palácios */
+    const CAP=9000,box=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),new THREE.MeshLambertMaterial({color:0xffffff}),CAP);let nb=0;
+    const dm=new THREE.Object3D(),cc=new THREE.Color();
+    const LIME=()=>[.87+rnd()*.06,.83+rnd()*.05,.71+rnd()*.06],BASALT=()=>[.42+rnd()*.06,.41+rnd()*.05,.39+rnd()*.05];
+    function addBox(lon,lat,wx,wz,h,rot,c,base){if(nb>=CAP)return;const gnd=base!=null?base:ground(lon,lat)-2;const v=toV(lon,lat,gnd+h/2);
+      dm.position.copy(v);dm.rotation.set(0,rot||0,0);dm.scale.set(wx/1000,h/1000*EXG,wz/1000);dm.updateMatrix();box.setMatrixAt(nb,dm.matrix);cc.setRGB(c[0],c[1],c[2]);box.setColorAt(nb,cc);nb++}
+    const segRot=(a,b)=>{const va=toV(a[1],a[0],0),vb=toV(b[1],b[0],0);return -Math.atan2(vb.z-va.z,vb.x-va.x)};
+    const segLen=(a,b)=>Math.hypot((b[1]-a[1])*MLON,(b[0]-a[0])*MLAT);
+    function wall(pts,th,h,c,tw){for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i],L=segLen(a,b),n=Math.max(1,Math.round(L/40));
+        for(let s=0;s<n;s++){const t0=s/n,t1=(s+1)/n,la=a[0]+(b[0]-a[0])*(t0+t1)/2,lo=a[1]+(b[1]-a[1])*(t0+t1)/2;addBox(lo,la,L/n+1,th,h,segRot(a,b),c)}
+        const nt=Math.max(1,Math.round(L/110));for(let s=0;s<=nt;s++){const t=s/nt;addBox(a[1]+(b[1]-a[1])*t,a[0]+(b[0]-a[0])*t,tw,tw,h+7,segRot(a,b),c)}}}
+    const occ=new Set(),cell=(lon,lat,s)=>Math.round(lon*MLON/s)+':'+Math.round(lat*MLAT/s);
+    const EXCL=[];const free=(lon,lat)=>!EXCL.some(p=>inPoly(lon,lat,p));
+    function houses(poly,n,smin,smax,colf,tries=8){const lats=poly.map(p=>p[0]),lons=poly.map(p=>p[1]),la0=Math.min(...lats),la1=Math.max(...lats),lo0=Math.min(...lons),lo1=Math.max(...lons);
+      for(let k=0;k<n*tries&&n>0;k++){const lat=la0+rnd()*(la1-la0),lon=lo0+rnd()*(lo1-lo0);if(!inPoly(lon,lat,poly)||!free(lon,lat))continue;const c1=cell(lon,lat,smax*.9);if(occ.has(c1))continue;occ.add(c1);
+        const w=smin+rnd()*(smax-smin),d=smin+rnd()*(smax-smin),h=4+rnd()*4+(w>20?3:0);addBox(lon,lat,w,d,h,(rnd()-.5)*.25,colf());n--}}
+    const TM=[[31.7761,35.2341],[31.7811,35.2349],[31.7807,35.2375],[31.7766,35.2367]];
+    const PAL=[[31.7738,35.2280],[31.7764,35.2280],[31.7764,35.2298],[31.7738,35.2298]],ANT=[[31.7800,35.2333],[31.7814,35.2333],[31.7814,35.2352],[31.7800,35.2352]];
+    const GOL=[[31.7779,35.2290],[31.7789,35.2290],[31.7789,35.2302],[31.7779,35.2302]],BET=[[31.7808,35.2352],[31.7822,35.2352],[31.7822,35.2366],[31.7808,35.2366]],SIL=[[31.7699,35.2347],[31.7707,35.2347],[31.7707,35.2357],[31.7699,35.2357]];
+    EXCL.push(TM,PAL,ANT,GOL,BET,SIL);
+    /* Monte do Templo: esplanada de Herodes */
+    const top=742+JOFF,bot=625+JOFF;
+    const sh=new THREE.Shape(TM.map(([la,lo])=>{const v=toV(lo,la,0);return new THREE.Vector2(v.x,-v.z)}));
+    const pg=new THREE.ExtrudeGeometry(sh,{depth:(top-bot)/1000*EXG,bevelEnabled:false});const pm=new THREE.Mesh(pg,new THREE.MeshLambertMaterial({color:0xe2d6b8}));
+    pm.rotation.x=-Math.PI/2;pm.position.y=bot/1000*EXG;scene.add(pm);
+    const LIM=[.9,.86,.75],GOLD=[.83,.66,.25],STONE=[.78,.72,.6];
+    const lerpP=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t];
+    const edge=(a,b,inset,w,h,c)=>{const cx=(TM[0][0]+TM[1][0]+TM[2][0]+TM[3][0])/4,cy=(TM[0][1]+TM[1][1]+TM[2][1]+TM[3][1])/4;const L=segLen(a,b),n=Math.round(L/25);
+      for(let s=0;s<n;s++){const m=lerpP(a,b,(s+.5)/n),dx=(cx-m[0])*MLAT,dy=(cy-m[1])*MLON,dd=Math.hypot(dx,dy);const la=m[0]+dx/dd*inset/MLAT,lo=m[1]+dy/dd*inset/MLON;addBox(lo,la,L/n+.5,w,h,segRot(a,b),c,top)}};
+    edge(TM[0],TM[3],18,32,28,[.93,.89,.78]);edge(TM[0],TM[1],9,14,13,LIM);edge(TM[1],TM[2],9,14,13,LIM);edge(TM[3],TM[2],9,14,13,LIM);
+    /* Templo: átrios, muro interno, santuário e altar */
+    const TC=[31.7781,35.2354],tr=segRot([0,35.23],[0,35.24]);
+    addBox(TC[1],TC[0],190,115,5,tr,[.88,.84,.72],top);
+    const off=(dE,dN)=>[TC[0]+dN/MLAT,TC[1]+dE/MLON];
+    [[0,57.5,190,5],[0,-57.5,190,5],[95,0,5,115],[-95,0,5,115]].forEach(([e,n,wx,wz])=>{const p=off(e,n);addBox(p[1],p[0],wx,wz,14,tr,LIM,top+5)});
+    let p=off(-10,0);addBox(p[1],p[0],46,30,38,tr,[.95,.93,.86],top+5);addBox(p[1],p[0],46,30,2.5,tr,GOLD,top+43);
+    p=off(17,0);addBox(p[1],p[0],8,52,50,tr,[.97,.95,.88],top+5);addBox(p[1],p[0],8.5,52.5,3,tr,GOLD,top+55);
+    p=off(40,0);addBox(p[1],p[0],16,16,8,tr,[.8,.76,.66],top+5);
+    p=off(62,0);addBox(p[1],p[0],60,60,4,tr,[.86,.82,.7],top+5);p=off(93,0);addBox(p[1],p[0],10,22,20,tr,GOLD.map(x=>x*.95),top+5);
+    /* Fortaleza Antônia */
+    p=[31.7807,35.2343];addBox(p[1],p[0],120,42,20,tr,STONE);
+    [[-55,-16,32],[55,-16,32],[-55,16,32],[55,16,46]].forEach(([e,n,h])=>{const q2=[p[0]+n/MLAT,p[1]+e/MLON];addBox(q2[1],q2[0],16,16,h,tr,STONE)});
+    /* Palácio de Herodes e as três torres */
+    addBox(35.2289,31.7745,60,95,14,tr,LIM);addBox(35.2289,31.7757,40,40,4,tr,[.55,.62,.4]);
+    [[35.2283,31.7765,20,46],[35.2279,31.7768,15,38],[35.2288,31.7766,12,30]].forEach(([lo,la,w,h])=>addBox(lo,la,w,w,h,tr,STONE));
+    addBox(35.2326,31.7763,40,34,18,tr,LIM);addBox(35.2314,31.7716,26,24,10,tr,LIM);
+    /* muralhas */
+    const W1N=[[31.7765,35.2282],[31.7770,35.2300],[31.7768,35.2320],[31.7763,35.2340]];
+    const W1=[[31.7765,35.2282],[31.7745,35.2280],[31.7725,35.2283],[31.7712,35.2295],[31.7700,35.2320],[31.7695,35.2345],[31.7712,35.2363],[31.7735,35.2366],[31.7755,35.2368],[31.7766,35.2367]];
+    const W2=[[31.7768,35.2296],[31.7790,35.2305],[31.7805,35.2318],[31.7804,35.2334]];
+    wall(W1N,5,12,STONE,10);wall(W1,5,12,STONE,10);wall(W2,4,10,STONE,9);
+    /* piscinas */
+    const water=new THREE.MeshLambertMaterial({color:0x6f9aa6});
+    const pool=(lo,la,wx,wz)=>{const m=new THREE.Mesh(new THREE.BoxGeometry(wx/1000,.6/1000*EXG,wz/1000),water);m.position.copy(toV(lo,la,ground(lo,la)+.5));m.rotation.y=tr;scene.add(m)};
+    pool(35.2352,31.7703,55,45);pool(35.2357,31.7817,44,44);pool(35.2361,31.7811,44,44);
+    [[35.2359,31.7820,100,8],[35.2359,31.7808,100,8],[35.2359,31.7814,100,6]].forEach(([lo,la,w,d])=>addBox(lo,la,w,d,7,tr,LIM));
+    /* Gólgota: elevação rochosa fora da muralha */
+    const gm=new THREE.Mesh(new THREE.ConeGeometry(28/1000,14/1000*EXG,9),new THREE.MeshLambertMaterial({color:0x9a9384}));gm.position.copy(toV(35.2296,31.7784,ground(35.2296,31.7784)+7));scene.add(gm);
+    /* bairros */
+    houses([[31.7766,35.2299],[31.7768,35.2334],[31.7737,35.2340],[31.7712,35.2331],[31.7710,35.2298],[31.7737,35.2299]],230,14,26,LIME);
+    houses([[31.7760,35.2338],[31.7762,35.2346],[31.7745,35.2366],[31.7712,35.2364],[31.7699,35.2350],[31.7708,35.2338],[31.7735,35.2341]],330,9,15,LIME);
+    houses([[31.7771,35.2301],[31.7790,35.2307],[31.7803,35.2319],[31.7802,35.2334],[31.7770,35.2336]],170,10,16,LIME);
+    houses([[31.7812,35.2310],[31.7842,35.2312],[31.7842,35.2362],[31.7822,35.2368],[31.7815,35.2340]],110,9,14,LIME,4);
+    /* oliveiras no Monte das Oliveiras */
+    const tree=new THREE.InstancedMesh(new THREE.IcosahedronGeometry(1,0),new THREE.MeshLambertMaterial({color:0xffffff}),1400);let nt=0;
+    const plant=(poly,n,r)=>{const lats=poly.map(p=>p[0]),lons=poly.map(p=>p[1]);for(let k=0;k<n*3&&nt<1400&&n>0;k++){const la=Math.min(...lats)+rnd()*(Math.max(...lats)-Math.min(...lats)),lo=Math.min(...lons)+rnd()*(Math.max(...lons)-Math.min(...lons));if(!inPoly(lo,la,poly))continue;
+      const s=r*(.7+rnd()*.6);dm.position.copy(toV(lo,la,ground(lo,la)+s*.8));dm.rotation.set(0,rnd()*6,0);dm.scale.set(s/1000,s/1000*EXG*.8,s/1000);dm.updateMatrix();tree.setMatrixAt(nt,dm.matrix);cc.setRGB(.36+rnd()*.08,.44+rnd()*.08,.26+rnd()*.06);tree.setColorAt(nt,cc);nt++;n--}};
+    plant([[31.7835,35.2398],[31.7835,35.2465],[31.7740,35.2465],[31.7745,35.2395]],1000,5);plant([[31.7790,35.2283],[31.7795,35.2288],[31.7785,35.2300],[31.7778,35.2292]],25,4);
+    /* vilas e cidades da época */
+    const TOWNS=[['natividade',60,230],['betania',25,150],['jerico',80,330],['nazare',35,190],['cana',30,170],['cafarnaum',70,250,1,'syn'],['magdala',75,260,0,'syn'],['tiberiades',110,380],['betsaida',40,200,1],['corazim',40,190,1,'syn'],['naim',25,150],['sicar',40,230],['hebrom',70,300],['emaus',30,170],['banias',60,260],['gadara',70,280],['cesareia',150,520],['jaffa',80,300],['akko',90,350],['sebaste',80,320],['qumran',12,60],['eingedi',25,160],['tabgha',8,90],['getsemani',0,0]];
+    for(const [id,n,rad,bas,sp] of TOWNS){const s=SITES.find(x=>x.id===id);if(!s||!n)continue;const poly=[];for(let a=0;a<12;a++){const r=rad*(.75+rnd()*.4);poly.push([s.lat+Math.sin(a/12*6.283)*r/MLAT,s.lon+Math.cos(a/12*6.283)*r/MLON])}
+      let left=n;for(let k=0;k<n*8&&left>0;k++){const ang=rnd()*6.283,r=Math.sqrt(rnd())*rad,la=s.lat+Math.sin(ang)*r/MLAT,lo=s.lon+Math.cos(ang)*r/MLON;if(isSea(lo,la))continue;const c1=cell(lo,la,13);if(occ.has(c1))continue;occ.add(c1);
+        addBox(lo,la,10+rnd()*7,10+rnd()*7,4.5+rnd()*2.5,rnd()*.6,(bas?BASALT:LIME)());left--}
+      if(sp==='syn')addBox(s.lon,s.lat,22,18,11,.3,bas?[.5,.49,.46]:LIM);}
+    /* marcos de Herodes */
+    addBox(35.4290,31.8560,90,50,10,.2,LIM);addBox(35.4300,31.8550,40,25,1,.2,[.43,.6,.66]);
+    addBox(35.1897,32.2763,32,46,22,.4,[.95,.93,.87]);
+    let cdx=0;for(let k=0;k<30&&isSea(34.8885+cdx,32.4965);k++)cdx+=.0012;const C=(lo)=>lo+cdx;addBox(C(34.8885),32.4965,80,60,10,0,LIM,4);addBox(C(34.8935)+.002,32.4985,320,80,5,0,[.84,.78,.64]);addBox(C(34.8912)+.001,32.5012,30,50,24,0,[.95,.93,.87]);
+    const th=new THREE.Mesh(new THREE.CylinderGeometry(.065,.065,.012*EXG,24,1,true,Math.PI*.5,Math.PI),new THREE.MeshLambertMaterial({color:0xd9ccaa,side:THREE.DoubleSide}));th.position.copy(toV(C(34.8915)+.001,32.4945,ground(C(34.8915)+.001,32.4945)+6));scene.add(th);
+    [[32.5030,34.8895,140,0],[32.5040,34.8870,140,1.2],[32.5020,34.8852,140,1.57],[32.4998,34.8858,100,2.2]].forEach(([la,lo,L,r])=>addBox(C(lo)-.0012,la,L,14,6,r,STONE,0));
+    const hg=ground(35.2416,31.6658);const her=new THREE.Mesh(new THREE.CylinderGeometry(.06,.32,.065*EXG,28),new THREE.MeshLambertMaterial({color:0xb79a6c}));her.position.copy(toV(35.2416,31.6658,hg+32));scene.add(her);
+    const hp=new THREE.Mesh(new THREE.CylinderGeometry(.034,.034,.016*EXG,24),new THREE.MeshLambertMaterial({color:0xd9ccaa}));hp.position.copy(toV(35.2416,31.6658,hg+72));scene.add(hp);
+    const mq=new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.014*EXG,20),new THREE.MeshLambertMaterial({color:0xc9b48e}));mq.position.copy(toV(35.6247,31.5594,ground(35.6247,31.5594)+7));scene.add(mq);
+    box.castShadow=box.receiveShadow=true;tree.castShadow=true;pm.castShadow=pm.receiveShadow=true;box.count=nb;box.instanceMatrix.needsUpdate=true;if(box.instanceColor)box.instanceColor.needsUpdate=true;scene.add(box);
+    tree.count=nt;tree.instanceMatrix.needsUpdate=true;if(tree.instanceColor)tree.instanceColor.needsUpdate=true;scene.add(tree);
+  }
+  function build(){
+    const {b,nx,ny,el,mk}=HL;world='hl';LO0=(b.w+b.e)/2;LA0=(b.s+b.n)/2;KXL=111.32*Math.cos(LA0*RAD);WP.hl={LO0,LA0,KXL};
+    R3=new THREE.WebGLRenderer({antialias:true});R3.setPixelRatio(Math.min(devicePixelRatio,2));R3.shadowMap.enabled=true;R3.shadowMap.type=THREE.PCFSoftShadowMap;box.prepend(R3.domElement);
+    scene=new THREE.Scene();scene.background=new THREE.Color(0xeadcbe);scene.fog=new THREE.Fog(0xeadcbe,170,520);addSky(scene,0x86aac2,0xeadcbe);sceneHL=scene;
+    camera=new THREE.PerspectiveCamera(45,1,.01,3000);
+    const pos=new Float32Array(nx*ny*3),col=new Float32Array(nx*ny*3);
+    for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){const k=j*nx+i,lon=b.w+i*(b.e-b.w)/(nx-1),lat=b.n-j*(b.n-b.s)/(ny-1);const m=mk[k],e=el[k];
+      const sink=lon>35.215&&lon<35.252&&lat>31.760&&lat<31.792?250:0;const v=toV(lon,lat,m===1?-60:e-sink);pos[k*3]=v.x;pos[k*3+1]=v.y;pos[k*3+2]=v.z;
+      const c=m===1?[.5,.6,.64]:m===2?[.45,.58,.64]:colAt(e),nz=.95+rnd()*.08;c[0]*=nz;c[1]*=nz;c[2]*=nz;col[k*3]=c[0];col[k*3+1]=c[1];col[k*3+2]=c[2]}
+    const idx=new Uint32Array((nx-1)*(ny-1)*6);let q=0;
+    for(let j=0;j<ny-1;j++)for(let i=0;i<nx-1;i++){const a=j*nx+i,bb=a+1,c=a+nx,d=c+1;idx[q++]=a;idx[q++]=c;idx[q++]=bb;idx[q++]=bb;idx[q++]=c;idx[q++]=d}
+    const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(pos,3));g.setAttribute('color',new THREE.BufferAttribute(col,3));g.setIndex(new THREE.BufferAttribute(idx,1));g.computeVertexNormals();
+    {const tm=new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true}));tm.receiveShadow=true;scene.add(tm)}
+    sunHL=addSun(scene);
+    try{buildCities()}catch(e){console.error('cidades',e)}
+    const drape=(pts,lift=.02)=>{const out=[];for(let k=0;k<pts.length;k++){const [lo,la]=pts[k];if(k){const [lo0,la0]=pts[k-1];const n=Math.ceil(Math.hypot(lo-lo0,la-la0)/.01);for(let s=1;s<n;s++){const t=s/n,x=lo0+(lo-lo0)*t,y=la0+(la-la0)*t;out.push(toV(x,y,Math.max(hAt(x,y),0)).add(new THREE.Vector3(0,lift,0)))}}out.push(toV(lo,la,Math.max(hAt(lo,la),0)).add(new THREE.Vector3(0,lift,0)))}return out};
+    const rm=new THREE.LineBasicMaterial({color:0x3f6a80});
+    HL.rivers.forEach(r=>{const geo=new THREE.BufferGeometry().setFromPoints(drape(r,.03).map(v=>{v.y=Math.max(v.y,-0.4*EXG);return v}));scene.add(new THREE.Line(geo,rm))});
+    regLines=new THREE.Group();
+    HL.regions.filter(r=>r.id!=='SYRIA').forEach(r=>{const geo=new THREE.BufferGeometry().setFromPoints(drape(r.ring,.06));const l=new THREE.Line(geo,new THREE.LineDashedMaterial({color:(RULER[r.ru]||RULER.syria)[0],dashSize:.9,gapSize:.6}));l.computeLineDistances();regLines.add(l)});
+    scene.add(regLines);
+    const hu=HL.lakes.find(l=>l.id==='huleh');if(hu){const sh=new THREE.Shape(hu.ring.map(([lo,la])=>{const v=toV(lo,la,0);return new THREE.Vector2(v.x,-v.z)}));const m=new THREE.Mesh(new THREE.ShapeGeometry(sh),new THREE.MeshBasicMaterial({color:0x7f9ba3}));m.rotation.x=-Math.PI/2;m.position.y=hAt(35.61,33.07)/1000*EXG+.05;hulehMesh=m;scene.add(m)}
+    controls=new THREE.MapControls(camera,R3.domElement);controls.enableDamping=true;controls.dampingFactor=.12;controls.screenSpacePanning=false;controls.maxPolarAngle=Math.PI*.46;controls.minDistance=.25;controls.maxDistance=420;
+    controls.addEventListener('change',()=>{dirty=true});
+    const t0=toV(35.23,31.78,800);controls.target.copy(t0);camera.position.set(t0.x+14,t0.y+26,t0.z+38);
+    new ResizeObserver(size).observe(box);size();
+    V3.ready=true;relabel();
+  }
+  function size(){const w=box.clientWidth,h=box.clientHeight;if(!w||!R3)return;R3.setSize(w,h);camera.aspect=w/h;camera.updateProjectionMatrix();dirty=true}
+  const inGR=p=>p&&p.lon>22.72&&p.lon<24.08&&p.lat>37.56&&p.lat<38.24;V3.inGR=inGR;
+  function buildGRWorld(){const keep={LO0,LA0,KXL,world,scene};world='gr';LO0=23.4;LA0=37.9;KXL=111.32*Math.cos(LA0*RAD);WP.gr={LO0,LA0,KXL};
+    scene=new THREE.Scene();scene.background=new THREE.Color(0xe9dfc6);scene.fog=new THREE.Fog(0xe9dfc6,120,360);addSky(scene,0x7fa6c4,0xe9dfc6);sunGR=addSun(scene);
+    try{buildGR(scene)}catch(e){console.error('grecia',e)}sceneGR=scene;world=keep.world;LO0=keep.LO0;LA0=keep.LA0;KXL=keep.KXL;scene=keep.scene}
+  async function ensureWorld(w){if(w==='gr'&&!sceneGR){await loadGR();if(!GR)throw new Error('grecia');buildGRWorld()}}
+  function sub3d(){$('.cart p').textContent=world==='gr'?'Acaia · ano 50 d.C. (Paulo)':'Terra Santa · ano 30 d.C.';document.querySelectorAll('.wsw button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.w===world)))}
+  function switchWorld(w){if(w===world)return;world=w;({LO0,LA0,KXL}=WP[w]);scene=w==='gr'?sceneGR:sceneHL;anim=null;
+    const t=w==='gr'?toV(23.5,37.93,0):toV(35.3,32.0,0);controls.target.copy(t);camera.position.set(t.x+20,t.y+60,t.z+60);sub3d();relabel();dirty=true}
+  V3.world=async w=>{try{await ensureWorld(w);switchWorld(w);V3.all()}catch(e){toast('Não consegui carregar a Grécia em 3D.')}};
+  const GRP=[['Himeto',37.93,23.81,1026],['Parnes',38.17,23.72,1413],['Pentélico',38.08,23.88,1109],['Egaleo',38.02,23.635,468],['Citerão',38.18,23.25,1409],['Gerânia',38.01,23.15,1351]];
+  const PEAK={'Mt Hermon':'Monte Hermon','Mt Carmel':'Monte Carmelo','Mt Gilboa':'Monte Gilboa','Mt Gerizim':'Monte Gerizim','Mt Ebal':'Monte Ebal','Mt Nebo':'Monte Nebo'};
+  function relabel(){
+    if(!V3.ready)return;lay.innerHTML='';labels=[];
+    const add=(html,cls,lon,lat,lift,pr,onclick)=>{const el=document.createElement(onclick?'button':'div');el.className='l3 '+cls;el.innerHTML=html;if(onclick)el.onclick=onclick;lay.appendChild(el);labels.push({el,v:toV(lon,lat,Math.max(hAt(lon,lat),0)+lift),pr,w:0})};
+    if(world==='gr'){GRP.forEach(([n,la,lo,e])=>add(`▲ ${esc(n)} <small>${e} m</small>`,'k3',lo,la,60,3));[['Golfo Sarônico',37.80,23.42],['Golfo de Corinto',38.10,22.92],['Salamina',37.93,23.47],['Egina',37.73,23.49]].forEach(([n,la,lo])=>add(esc(n),'w3',lo,la,0,2));
+      PL.filter(inGR).forEach(p=>{const n=(photosOf.get(p.id)||[]).length;add(`<i class="${n?'v':''}"></i>${esc(p.n)}`,'p3',p.lon,p.lat,40,n?6:5,()=>openPlace(p.id))});labels.sort((a,b)=>b.pr-a.pr);dirty=true;return}
+    if(ERA30)HL.labels.filter(l=>l.n!=='SYRIA').forEach(l=>add(esc(l.n),'r3',l.lon,l.lat,1500,1));
+    add(esc('Mar da Galileia'),'w3',35.59,32.81,0,2);add(esc(ERA30?'Mar Salgado':'Mar Morto'),'w3',35.5,31.5,0,2);if(ERA30)add('Lago Hula','w3',35.61,33.08,0,2);
+    HL.peaks.filter(p=>PEAK[p.n]).forEach(p=>add(`▲ ${esc(PEAK[p.n])} <small>${p.e} m</small>`,'k3',p.lon,p.lat,80,3));
+    PL.filter(inHL).forEach(p=>{const n=(photosOf.get(p.id)||[]).length;add(`<i class="${n?'v':''}"></i>${esc(p.n)}`,'p3',p.lon,p.lat,60,n?6:5,()=>openPlace(p.id))});
+    labels.sort((a,b)=>b.pr-a.pr);if(regLines)regLines.visible=ERA30;if(hulehMesh)hulehMesh.visible=ERA30;dirty=true}
+  function place(){
+    const W3=box.clientWidth,H3=box.clientHeight,rects=[];
+    for(const L of labels){const p=L.v.clone().project(camera);if(p.z>1||p.x<-1.2||p.x>1.2||p.y<-1.2||p.y>1.2){L.el.style.display='none';continue}
+      const x=(p.x+1)/2*W3,y=(1-p.y)/2*H3;if(!L.w){L.el.style.display='';L.w=L.el.offsetWidth||80}
+      const cls=L.el.classList;const pin=cls.contains('p3')||cls.contains('k3');const x0=pin?x-7:x-L.w/2,y0=pin?y-13:y-12,r=[x0,y0,x0+L.w,y0+26];
+      if(L.pr<6&&rects.some(q=>r[0]<q[2]&&r[2]>q[0]&&r[1]<q[3]&&r[3]>q[1])){L.el.style.display='none';continue}
+      rects.push(r);L.el.style.display='';L.el.style.transform=`translate(${x0.toFixed(0)}px,${y0.toFixed(0)}px)`}}
+  function loop(){if(!V3.on)return;requestAnimationFrame(loop);
+    if(anim){const t=Math.min(1,(performance.now()-anim.t0)/anim.d),u=t<.5?4*t*t*t:1-((-2*t+2)**3)/2;controls.target.lerpVectors(anim.a0,anim.a1,u);camera.position.lerpVectors(anim.p0,anim.p1,u);
+      if(anim.lift){camera.position.y+=Math.sin(Math.PI*u)*anim.lift}dirty=true;if(t>=1)anim=null}
+    if(controls.update())dirty=true;if(dirty){shadowFit();R3.render(scene,camera);place();dirty=false}}
+  function shadowFit(){const sun=world==='gr'?sunGR:sunHL;if(!sun)return;const d=camera.position.distanceTo(controls.target);const on=d<9;if(sun.castShadow!==on)sun.castShadow=on;if(!on)return;
+    const S=Math.max(.3,Math.min(4.5,d*.9)),c=sun.shadow.camera;c.left=-S;c.right=S;c.top=S;c.bottom=-S;c.near=.5;c.far=160;c.updateProjectionMatrix();sun.target.position.copy(controls.target);sun.position.copy(controls.target).add(new THREE.Vector3(-35,45,-28))}
+  function go(target,dist,d=1500,lift=0){const off=camera.position.clone().sub(controls.target);if(off.length()<.01)off.set(0,1,1);off.setLength(dist);
+    anim={t0:performance.now(),d:RM?1:d,a0:controls.target.clone(),a1:target,p0:camera.position.clone(),p1:target.clone().add(off),lift}}
+  V3.fly=async(p,prev)=>{if(!V3.ready)return;const w=inGR(p)?'gr':'hl';if(w!==world){try{await ensureWorld(w)}catch(e){return}switchWorld(w);prev=null}const t=toV(p.lon,p.lat,Math.max(hAt(p.lon,p.lat),0));const dist=p.z>=25?1.6:TOWNSET.has(p.id)?2.4:p.z>=14?6:12;
+    const far=prev?km(prev.lat,prev.lon,p.lat,p.lon):camera.position.distanceTo(t);go(t,dist,far>20?2200:1500,Math.min(60,far*.6))};
+  V3.overview=ps=>{const lo=ps.reduce((s,p)=>s+p.lon,0)/ps.length,la=ps.reduce((s,p)=>s+p.lat,0)/ps.length;const span=Math.max(...ps.map(p=>km(la,lo,p.lat,p.lon)));go(toV(lo,la,0),Math.max(12,span*2.4),1800)};
+  V3.zoom=f=>{if(V3.ready)go(controls.target.clone(),Math.min(420,Math.max(.25,camera.position.distanceTo(controls.target)*f)),350)};
+  V3.all=()=>{if(V3.ready)world==='gr'?go(toV(23.42,37.93,0),75,1500):go(toV(35.3,32.0,0),190,1500)};
+  V3.relabel=relabel;
+  V3.open=async()=>{
+    if(!ERA30)setEra(true);document.body.classList.add('v3d');box.classList.remove('hidden');setTag('Carregando o relevo…');V3.on=true;
+    let stage='webgl';
+    try{const cv=document.createElement('canvas');if(!(cv.getContext('webgl')||cv.getContext('experimental-webgl')))throw 0;
+      stage='dados';await loadHL();if(!HL)throw 0;stage='biblioteca';await loadScript(THREE_URL);await loadScript(CTRL_URL);if(!window.THREE||!THREE.MapControls)throw 0;stage='montagem';if(!V3.ready)build()}
+    catch(e){V3.close();const why={webgl:'este navegador ou aplicativo não tem WebGL (gráficos 3D) ativado. Tente no Chrome.',dados:'não carregou o arquivo de relevo. Verifique a internet e recarregue.',biblioteca:'não carregou a biblioteca 3D. Verifique a internet e recarregue.',montagem:'o aparelho não conseguiu montar a cena 3D.'}[stage];
+      openSheet(`<div class="shead"><h2>O 3D não abriu</h2><button class="close" data-act="close" aria-label="Fechar">×</button></div><p>Motivo: ${why}</p><p class="meta">Código: ${stage}${e&&e.message?' · '+esc(e.message):''}</p>`);return}
+    setTag(S.mode==='cloud'?'Diário salvo na sua conta':S.mode==='read'?'Somente leitura':'Fotos guardadas só neste navegador');
+    $('#v3load').classList.add('hidden');$('#z3d').textContent='2D';size();
+    const p=curPlace&&byId.get(curPlace);const [la,lo]=fromS(W/2,H/2);const c={lat:la,lon:lo};
+    let w=(p&&inGR(p))||(!p&&inGR(c)&&cam.k>.2)?'gr':'hl';if(tour&&tour.st[tour.i]&&inGR(tour.st[tour.i].place))w='gr';
+    if(w==='gr'){$('#v3load').classList.remove('hidden');try{await ensureWorld('gr');switchWorld('gr')}catch(e){w='hl'}$('#v3load').classList.add('hidden')}
+    sub3d();relabel();dirty=true;loop();
+    if(p&&(inHL(p)||inGR(p)))V3.fly(p);else if((inHL(c)||inGR(c))&&cam.k>2)V3.fly({lat:la,lon:lo,z:cam.k>20?30:cam.k>5?14:8});else V3.all()
+  };
+  V3.close=()=>{V3.on=false;anim=null;document.body.classList.remove('v3d');box.classList.add('hidden');$('#z3d').textContent='3D';$('.cart p').textContent=ERA30?'Terra Santa · ano 30 d.C.':'Diário de viagem · Grécia e Terra Santa';schedule()};
+}
+$('#z3d').onclick=()=>V3.on?V3.close():V3.open();
+document.querySelectorAll('.wsw button').forEach(b=>b.onclick=()=>V3.world(b.dataset.w));
+
+/* ---------- Armazenamento ---------- */
+const uid=()=>(crypto.randomUUID?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2)).replace(/[^a-zA-Z0-9-]/g,'');
+function cloud(db,assets){
+  S.addPhoto=async(blob,meta)=>{const a=await assets.upload(blob);await db.collection('fotos').doc(uid()).set({...meta,assetId:a.id})};
+  S.updatePhoto=(id,patch)=>db.doc('fotos/'+id).update(patch);
+  S.deletePhoto=async ph=>{await db.doc('fotos/'+ph.id).delete();if(ph.assetId)try{await assets.delete(ph.assetId)}catch{}};
+  S.addPlace=async o=>{const id=uid();await db.doc('lugares/'+id).set(o);return id};
+  S.updatePlace=(id,patch)=>db.doc('lugares/'+id).update(patch);
+  S.deletePlace=id=>db.doc('lugares/'+id).delete();
+}
+function listen(db){
+  let got=false;const to=setTimeout(()=>{if(!got)setTag('Diário fora de alcance por enquanto')},10000);
+  const fail=e=>{clearTimeout(to);setTag(e&&e.code==='revoked'?'Diário indisponível':'Não foi possível ler o diário')};
+  db.collection('fotos').onSnapshot(s=>{if(!s.metadata.fromCache){got=true;clearTimeout(to)}S.photos=s.docs.map(d=>({id:d.id,...d.data()}));refresh();if(!S.fitDone&&S.photos.length&&!s.metadata.fromCache){S.fitDone=1;flyTo(fitAll(),900)}},fail);
+  db.collection('lugares').onSnapshot(s=>{S.places=s.docs.map(d=>({id:d.id,...d.data()}));refresh()},fail);
+}
+function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open('mapa-tesouro',1);r.onupgradeneeded=()=>{const d=r.result;d.createObjectStore('fotos',{keyPath:'id'});d.createObjectStore('lugares',{keyPath:'id'})};r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+const idbDo=(st,mode,fn)=>new Promise((res,rej)=>{if(!S.idb){res(null);return}const t=S.idb.transaction(st,mode);const q=fn(t.objectStore(st));t.oncomplete=()=>res(q&&q.result);t.onerror=()=>rej(t.error)});
+async function local(){
+  try{S.idb=await idbOpen();S.photos=await idbDo('fotos','readonly',s=>s.getAll())||[];S.places=await idbDo('lugares','readonly',s=>s.getAll())||[]}catch{S.idb=null}
+  const put=(st,o)=>idbDo(st,'readwrite',s=>s.put(o));
+  S.addPhoto=async(blob,meta)=>{const o={id:uid(),...meta,blob};await put('fotos',o);S.photos.push(o);refresh()};
+  S.updatePhoto=async(id,patch)=>{const o=S.photos.find(x=>x.id===id);Object.assign(o,patch);await put('fotos',o);refresh()};
+  S.deletePhoto=async ph=>{await idbDo('fotos','readwrite',s=>s.delete(ph.id));S.photos=S.photos.filter(x=>x.id!==ph.id);refresh()};
+  S.addPlace=async o=>{const r={id:uid(),...o};await put('lugares',r);S.places.push(r);refresh();return r.id};
+  S.updatePlace=async(id,patch)=>{const o=S.places.find(x=>x.id===id);Object.assign(o,patch);await put('lugares',o);refresh()};
+  S.deletePlace=async id=>{await idbDo('lugares','readwrite',s=>s.delete(id));S.places=S.places.filter(x=>x.id!==id);refresh()};
+  S.mode='local';S.canAdd=true;readyRes();setTag(S.idb?'Fotos guardadas só neste navegador':'As fotos somem ao fechar a página');refresh();if(S.photos.length)flyTo(fitAll(),0);
+}
+(async()=>{
+  rebuild();
+  if(!(window.claude&&window.claude.use)){await local();return}
+  const use=n=>window.claude.use(n).catch(()=>null);
+  const [db,assets,user,sample]=await Promise.all([use('db'),use('assets'),use('user'),use('sample')]);
+  S.sample=sample||null;
+  if(!db){await local();return}
+  S.db=db;let canEdit=true;
+  if(user){try{const c=await user.canEdit();if(c===false)canEdit=false}catch{}}
+  S.canAdd=!!assets&&canEdit;S.mode=S.canAdd?'cloud':'read';readyRes();
+  if(S.canAdd)cloud(db,assets);
+  setTag(S.canAdd?'Diário salvo na sua conta':'Somente leitura');
+  if(!S.canAdd)$('#addBtn').classList.add('hidden');
+  listen(db);refresh();
+})();
+}
+</script>
+</body>
+</html>
