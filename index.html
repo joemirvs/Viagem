@@ -1351,7 +1351,7 @@ async function local(){
   S.mode='local';S.canAdd=true;readyRes();setTag(S.idb?'Fotos guardadas só neste navegador':'As fotos somem ao fechar a página');refresh();if(S.photos.length)flyTo(fitAll(),0);
 }
 (async()=>{
-  try{if('serviceWorker' in navigator&&!window.claude&&/github\.io$/.test(location.hostname))navigator.serviceWorker.register('sw.js')}catch{}
+  try{if('serviceWorker' in navigator&&!window.claude&&location.protocol==='https:'&&!/claude\.ai|claudeusercontent/.test(location.hostname))navigator.serviceWorker.register('sw.js')}catch{}
   rebuild();
   if(!(window.claude&&window.claude.use)){await local();return}
   const use=n=>window.claude.use(n).catch(()=>null);
