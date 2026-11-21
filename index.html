@@ -766,6 +766,7 @@ async function prep(file,onStep){
   const w=src.width,h=src.height,s=Math.min(1,1600/Math.max(w,h));const c=document.createElement('canvas');c.width=Math.round(w*s);c.height=Math.round(h*s);
   c.getContext('2d').drawImage(src,0,0,c.width,c.height);
   const blob=await new Promise(r=>c.toBlob(r,'image/jpeg',.84));if(!blob)throw new Error('fmt');
+  if(ex.lat==null&&file._gps){ex.lat=file._gps[0];ex.lon=file._gps[1]}
   return {blob,lat:ex.lat,lon:ex.lon,taken:ex.date||file.lastModified||Date.now()};
 }
 const inIsrael=(la,lo)=>(la>29.2&&la<33.6&&lo>33.8&&lo<36.2)||(la>34.8&&la<41.8&&lo>19.3&&lo<28.3);
@@ -811,13 +812,21 @@ fileIn.addEventListener('click',()=>{clearTimeout(pickT);pickT=setTimeout(()=>{p
   <p class="loc" style="word-break:break-all">${LINK}</p>
   <div class="acts"><a class="btn p" href="${LINK}" target="_blank" rel="noopener" style="text-decoration:none;display:inline-flex;align-items:center">Abrir no navegador</a><button class="btn" id="cpl">Copiar link</button></div>`);
   const c=document.getElementById('cpl');if(c)c.onclick=async()=>{try{await navigator.clipboard.writeText(LINK);c.textContent='Link copiado'}catch{c.textContent='Copie o link acima'}}},inWebView?150:1600)});
-fileIn.onchange=async()=>{pickOk();const files=[...(fileIn.files||[])];if(!files.length)return;
+fileIn.onchange=()=>{pickOk();processFiles([...(fileIn.files||[])])};
+/* no app Android: escolhe pela galeria nativa, que entrega a localização original da foto */
+fileIn.addEventListener('click',async e=>{if(!isNative())return;e.preventDefault();e.stopImmediatePropagation();clearTimeout(pickT);if(Date.now()-presetAt>800)preset=null;
+  try{const P=Capacitor.registerPlugin('PhotoGps');const r=await P.pick();const list=(r&&r.files)||[];if(!list.length)return;
+    if(r.gpsPermission===false)toast('Sem a permissão de localização das fotos, o app não consegue ler onde elas foram tiradas.',5000);
+    const files=[];for(const it of list){try{const res=await fetch(Capacitor.convertFileSrc(it.path));const b=await res.blob();let lm=Date.now();if(it.date){const m=String(it.date).match(/(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/);if(m)lm=new Date(+m[1],m[2]-1,+m[3],+m[4],+m[5],+m[6]).getTime()}
+      const f=new File([b],it.name,{type:it.mime||b.type||'image/jpeg',lastModified:lm});if(typeof it.lat==='number'&&(it.lat||it.lon))f._gps=[it.lat,it.lon];files.push(f)}catch(err){console.warn(err)}}
+    processFiles(files)}catch(err){console.warn('PhotoGps',err);toast('Não consegui abrir a galeria: '+(err&&err.message||'erro'),5000)}},{capture:true});
+async function processFiles(files){if(!files.length)return;
   if(S.mode==='boot'){formOpen=true;openSheet(`<div class="shead"><h2>Abrindo o diário…</h2></div><p class="meta">Só um instante.</p>`);await dbReady}
   if(!S.canAdd){formOpen=false;closeSheet();toast('Este diário está em modo de leitura: só o dono pode adicionar fotos.',4500);return}
   for(let i=0;i<files.length;i++){formOpen=true;curPlace=null;openSheet(`<div class="shead"><h2>Preparando foto…</h2></div><p class="meta">Lendo a localização e a data guardadas na imagem.</p>`);
-    let f;try{f=await prep(files[i],m=>{const p=sheet.querySelector('.meta');if(p)p.textContent=m})}catch{toast(isHeic(files[i])?'Não consegui converter esta foto HEIC. No iPhone: Ajustes › Câmera › Formatos › Mais Compatível faz as próximas fotos saírem em JPEG.':'Não consegui abrir uma das imagens.',7000);continue}
+    let f;try{f=await prep(files[i],m=>{const p=sheet.querySelector('.meta');if(p)p.textContent=m})}catch{toast(isHeic(files[i])?'Não consegui converter esta foto HEIC. Para as próximas, desligue as imagens de alta eficiência (HEIF) nas configurações da câmera.':'Não consegui abrir uma das imagens.',7000);continue}
     const r=await photoForm(f,i,files.length);if(r==='stop')break}
-  formOpen=false;closeSheet()};
+  formOpen=false;closeSheet()}
 function photoForm(f,i,n){return new Promise(resolve=>{
   const url=URL.createObjectURL(f.blob);
   f.src=f.lat==null?'none':inIsrael(f.lat,f.lon)?'exif':'bad';

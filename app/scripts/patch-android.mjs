@@ -2,12 +2,32 @@
 import { readFileSync, writeFileSync, existsSync, cpSync } from "node:fs";
 const m = "android/app/src/main/AndroidManifest.xml";
 let s = readFileSync(m, "utf8");
-const perms = ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "CAMERA", "ACCESS_MEDIA_LOCATION", "READ_MEDIA_IMAGES"];
+const perms = ["ACCESS_FINE_LOCATION", "ACCESS_COARSE_LOCATION", "CAMERA", "ACCESS_MEDIA_LOCATION", "READ_MEDIA_IMAGES", "READ_MEDIA_VISUAL_USER_SELECTED"];
 const linhas = perms.filter(p => !s.includes(`android.permission.${p}`)).map(p => `    <uses-permission android:name="android.permission.${p}" />`).join("\n");
-s = s.replace(/(<uses-permission\s+android:name="android\.permission\.INTERNET"\s*\/>)/, `$1\n${linhas}\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <uses-feature android:name="android.hardware.location.gps" android:required="false" />`);
+s = s.replace(/(<uses-permission\s+android:name="android\.permission\.INTERNET"\s*\/>)/, `$1\n${linhas}\n    <uses-feature android:name="android.hardware.camera" android:required="false" />\n    <uses-feature android:name="android.hardware.location.gps" android:required="false" />\n    <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />`);
 writeFileSync(m, s); console.log("ok: permissões");
 if (existsSync("resources/android")) { cpSync("resources/android", "android/app/src/main/res", { recursive: true, force: true }); console.log("ok: ícones"); }
 const g = "android/app/build.gradle";
 const n = parseInt(process.env.GITHUB_RUN_NUMBER || "1", 10) || 1;
 writeFileSync(g, readFileSync(g, "utf8").replace(/versionCode\s+\d+/, `versionCode ${n}`).replace(/versionName\s+"[^"]*"/, `versionName "1.0.${n}"`));
 console.log(`ok: versão 1.0.${n}`);
+
+// Plugin nativo: lê a localização original das fotos da galeria
+import { mkdirSync } from "node:fs";
+const pasta = "android/app/src/main/java/br/com/mapadeviagem/app";
+mkdirSync(pasta, { recursive: true });
+cpSync("native/PhotoGpsPlugin.java", `${pasta}/PhotoGpsPlugin.java`);
+writeFileSync(`${pasta}/MainActivity.java`, `package br.com.mapadeviagem.app;
+
+import android.os.Bundle;
+import com.getcapacitor.BridgeActivity;
+
+public class MainActivity extends BridgeActivity {
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        registerPlugin(PhotoGpsPlugin.class);
+        super.onCreate(savedInstanceState);
+    }
+}
+`);
+console.log("ok: plugin de GPS das fotos");
