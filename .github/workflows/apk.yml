@@ -1,0 +1,57 @@
+name: Gerar APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ["index.html", "*.json", "app/**", ".github/workflows/apk.yml"]
+
+permissions:
+  contents: write
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - name: Instalar dependências
+        run: npm install --no-audit --no-fund
+      - name: Montar o app (mapa, dados, bibliotecas e fontes locais)
+        run: node scripts/prepare.mjs
+      - name: Criar o projeto Android
+        run: npx cap add android
+      - name: Ajustes do Android (permissões, ícone, versão)
+        run: node scripts/patch-android.mjs
+      - name: Sincronizar
+        run: npx cap sync android
+      - name: Compilar
+        working-directory: app/android
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon
+      - name: Assinar o APK
+        run: |
+          BT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -1)"
+          IN=android/app/build/outputs/apk/release/app-release-unsigned.apk
+          "$BT/zipalign" -p -f 4 "$IN" aligned.apk
+          "$BT/apksigner" sign --ks signing/mapa-viagem.keystore --ks-pass pass:viagem2026 --key-pass pass:viagem2026 --ks-key-alias viagem --out mapa-de-viagem.apk aligned.apk
+          "$BT/apksigner" verify mapa-de-viagem.apk
+      - name: Publicar para download
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.${{ github.run_number }}
+          name: Mapa de Viagem 1.0.${{ github.run_number }}
+          body: "Baixe o arquivo mapa-de-viagem.apk abaixo e abra no celular Android para instalar."
+          files: app/mapa-de-viagem.apk
+          make_latest: true
