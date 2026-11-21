@@ -8,6 +8,7 @@ copiar("node_modules/three/build/three.min.js", "www/vendor/three.min.js");
 copiar("node_modules/three/examples/js/controls/OrbitControls.js", "www/vendor/OrbitControls.js");
 copiar("node_modules/exifr/dist/full.umd.js", "www/vendor/exifr.umd.js");
 copiar("node_modules/heic2any/dist/heic2any.min.js", "www/vendor/heic2any.min.js");
+copiar("node_modules/heic-to/dist/csp/heic-to.js", "www/vendor/heic-to.js");
 const fontes = [["eb-garamond", "eb-garamond-latin-400-normal", 400, "normal", "EB Garamond"], ["eb-garamond", "eb-garamond-latin-600-normal", 600, "normal", "EB Garamond"], ["eb-garamond", "eb-garamond-latin-400-italic", 400, "italic", "EB Garamond"], ["pirata-one", "pirata-one-latin-400-normal", 400, "normal", "Pirata One"]];
 let css = "";
 for (const [pkg, file, w, st, fam] of fontes) { copiar(`node_modules/@fontsource/${pkg}/files/${file}.woff2`, `www/fonts/${file}.woff2`); css += `@font-face{font-family:'${fam}';font-style:${st};font-weight:${w};font-display:swap;src:url(${file}.woff2) format('woff2')}\n`; }
@@ -20,6 +21,7 @@ const trocas = [
   ["https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js", "vendor/OrbitControls.js"],
   ["https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js", "vendor/exifr.umd.js"],
   ["https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js", "vendor/heic2any.min.js"],
+  ["https://cdn.jsdelivr.net/npm/heic-to@1.6.7/dist/csp/heic-to.js", "./vendor/heic-to.js"],
   [/<link rel="manifest"[^>]*>\s*/, ""],
   ["</head>", '<script src="vendor/capacitor.js"></script>\n</head>']
 ];

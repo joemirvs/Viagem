@@ -744,7 +744,7 @@ function exif(buf){
 }
 const scripts={};
 const loadScript=u=>scripts[u]||(scripts[u]=new Promise((res,rej)=>{const e=document.createElement('script');e.src=u;e.async=true;e.onload=res;e.onerror=()=>{delete scripts[u];rej(new Error('script'))};document.head.appendChild(e)}));
-const EXIFR='https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js',HEIC='https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js';
+const EXIFR='https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js',HEIC='https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js',HEICTO='https://cdn.jsdelivr.net/npm/heic-to@1.6.7/dist/csp/heic-to.js';
 const isHeic=f=>/hei[cf]/i.test(f.type||'')||/\.hei[cf]$/i.test(f.name||'');
 async function meta(file){
   let ex={};try{ex=exif(await file.arrayBuffer())}catch{}
@@ -759,7 +759,9 @@ async function prep(file,onStep){
   let src;try{src=await bitmap(file)}catch(e){
     if(!isHeic(file))throw e;
     onStep&&onStep('Convertendo a foto do iPhone (HEIC)… isso leva alguns segundos.');
-    await loadScript(HEIC);let out=await window.heic2any({blob:file,toType:'image/jpeg',quality:.9});if(Array.isArray(out))out=out[0];
+    let out=null;
+    try{const m=await import(HEICTO);out=await (m.heicTo||m.default)({blob:file,type:'image/jpeg',quality:.9})}catch(e1){console.warn('heic-to',e1)}
+    if(!out){await loadScript(HEIC);out=await window.heic2any({blob:file,toType:'image/jpeg',quality:.9});if(Array.isArray(out))out=out[0]}
     src=await bitmap(out)}
   const w=src.width,h=src.height,s=Math.min(1,1600/Math.max(w,h));const c=document.createElement('canvas');c.width=Math.round(w*s);c.height=Math.round(h*s);
   c.getContext('2d').drawImage(src,0,0,c.width,c.height);
