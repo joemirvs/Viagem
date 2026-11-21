@@ -3,6 +3,7 @@ import { cpSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node
 import { dirname } from "node:path";
 const copiar = (de, para) => { if (!existsSync(de)) { console.error("ERRO: não achei", de); process.exit(1); } mkdirSync(dirname(para), { recursive: true }); cpSync(de, para); console.log("ok:", para); };
 for (const f of ["index.html", "land.json", "holyland.json", "greece.json", "icon-192.png"]) copiar(`../${f}`, `www/${f}`);
+copiar("node_modules/@capacitor/core/dist/capacitor.js", "www/vendor/capacitor.js");
 copiar("node_modules/three/build/three.min.js", "www/vendor/three.min.js");
 copiar("node_modules/three/examples/js/controls/OrbitControls.js", "www/vendor/OrbitControls.js");
 copiar("node_modules/exifr/dist/full.umd.js", "www/vendor/exifr.umd.js");
@@ -19,7 +20,8 @@ const trocas = [
   ["https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js", "vendor/OrbitControls.js"],
   ["https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js", "vendor/exifr.umd.js"],
   ["https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js", "vendor/heic2any.min.js"],
-  [/<link rel="manifest"[^>]*>\s*/, ""]
+  [/<link rel="manifest"[^>]*>\s*/, ""],
+  ["</head>", '<script src="vendor/capacitor.js"></script>\n</head>']
 ];
 for (const [a, b] of trocas) { const antes = h; h = h.replace(a, b); if (h === antes) console.warn("AVISO: não troquei", a); }
 writeFileSync("www/index.html", h);

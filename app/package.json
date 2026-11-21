@@ -6,6 +6,7 @@
   "dependencies": {
     "@capacitor/android": "^8.0.0",
     "@capacitor/core": "^8.0.0",
+    "@capacitor/geolocation": "^8.2.5",
     "@fontsource/eb-garamond": "^5.0.0",
     "@fontsource/pirata-one": "^5.0.0",
     "exifr": "7.1.3",

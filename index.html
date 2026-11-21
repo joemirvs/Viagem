@@ -774,7 +774,16 @@ const toLocalInput=t=>{const d=new Date(t);d.setMinutes(d.getMinutes()-d.getTime
 
 /* ---------- Localização em tempo real (funciona fora do Claude, ex.: GitHub Pages) ---------- */
 let ME=null,meWatch=null,meFirst=true;
-function startGeo(fly){if(!navigator.geolocation){toast('Este navegador não informa a localização.');return}
+const isNative=()=>!!(window.Capacitor&&Capacitor.isNativePlatform&&Capacitor.isNativePlatform()&&Capacitor.registerPlugin);
+function gotPos(c,fly){ME={lat:c.latitude,lon:c.longitude,acc:c.accuracy||50,t:Date.now()};$('#zme').classList.add('on');if(meFirst&&fly){meFirst=false;flyTo(camFor(ME.lat,ME.lon,Math.max(cam.k,8)))}schedule()}
+async function nativeGeo(fly){
+  if(meWatch!=null){if(ME&&fly)flyTo(camFor(ME.lat,ME.lon,Math.max(cam.k,8)));return}
+  const G=Capacitor.registerPlugin('Geolocation');
+  try{let p=await G.checkPermissions();if(p.location!=='granted'&&p.coarseLocation!=='granted'){p=await G.requestPermissions();if(p.location!=='granted'&&p.coarseLocation!=='granted'){toast('Permita a localização para o Mapa de Viagem nas configurações do Android.',5000);return}}
+    meWatch='n';if(fly)toast('Buscando a sua localização…');
+    await G.watchPosition({enableHighAccuracy:true,timeout:30000,maximumAge:15000},(pos,err)=>{if(err||!pos){if(err)toast('Não consegui a localização. Confira se o GPS do celular está ligado.',5000);return}gotPos(pos.coords,fly)})}
+  catch(e){meWatch=null;toast(/disabled|desativ|services/i.test(String(e&&e.message))?'Ligue a localização (GPS) do celular e tente de novo.':'Não consegui a localização: '+(e&&e.message||'erro'),6000)}}
+function startGeo(fly){if(isNative()){nativeGeo(fly);return}if(!navigator.geolocation){toast('Este navegador não informa a localização.');return}
   if(meWatch!=null){if(ME&&fly)flyTo(camFor(ME.lat,ME.lon,Math.max(cam.k,8)));return}
   meWatch=navigator.geolocation.watchPosition(p=>{ME={lat:p.coords.latitude,lon:p.coords.longitude,acc:p.coords.accuracy||50,t:Date.now()};$('#zme').classList.add('on');
       if(meFirst&&fly){meFirst=false;flyTo(camFor(ME.lat,ME.lon,Math.max(cam.k,8)))}schedule()},
@@ -782,7 +791,7 @@ function startGeo(fly){if(!navigator.geolocation){toast('Este navegador não inf
       toast(e.code===1?(window.claude?'Dentro do Claude a localização é bloqueada. Abra a versão do GitHub.':'Permita o acesso à localização nas configurações do navegador.'):'Não consegui obter a localização agora.',5000)},
     {enableHighAccuracy:true,maximumAge:15000,timeout:30000})}
 $('#zme').onclick=()=>startGeo(true);
-try{navigator.permissions&&navigator.permissions.query({name:'geolocation'}).then(r=>{if(r.state==='granted')startGeo(false)}).catch(()=>{})}catch{}
+setTimeout(()=>{if(isNative())startGeo(false);else try{navigator.permissions&&navigator.permissions.query({name:'geolocation'}).then(r=>{if(r.state==='granted')startGeo(false)}).catch(()=>{})}catch{}},800);
 const meFresh=()=>ME&&Date.now()-ME.t<5*60000;
 
 /* ---------- Adicionar fotos ---------- */
