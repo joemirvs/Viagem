@@ -713,7 +713,8 @@ $('#listBtn').onclick=()=>{
   const row=p=>{const n=(photosOf.get(p.id)||[]).length;return `<button class="row" data-act="go" data-v="${esc(p.id)}"><span class="mk">${n?'✕':'·'}</span><span class="nm">${esc(p.n)}${p.pa?' <i style="color:var(--muted);font-size:14px">· Paulo</i>':''}</span><span class="ct">${n?n+' foto'+(n>1?'s':''):''}</span></button>`};
   const groups=[...REGIONS,'Seus lugares'].map(r=>{const ps=PL.filter(p=>p.r===r);return ps.length?`<h3>${esc(r)}</h3>${ps.map(row).join('')}`:''}).join('');
   const vis=PL.filter(p=>photosOf.has(p.id)).length;
-  openSheet(`<div class="shead"><h2>Locais do mapa</h2><button class="close" data-act="close" aria-label="Fechar">×</button></div><div class="meta">${vis} de ${PL.length} lugares com fotos</div><div class="list">${groups}</div>`);
+  openSheet(`<div class="shead"><h2>Locais do mapa</h2><button class="close" data-act="close" aria-label="Fechar">×</button></div><div class="meta">${vis} de ${PL.length} lugares com fotos</div>${isNative()&&S.photos.length?'<div class="acts" style="margin:4px 0 8px"><button class="btn p" id="fixloc">Corrigir locais das minhas fotos</button></div><p class="ctx">Escolha na galeria as mesmas fotos que já estão no mapa: o app lê o GPS original de cada uma e move para o lugar certo.</p>':''}<div class="list">${groups}</div>`);
+  const fx=document.getElementById('fixloc');if(fx)fx.onclick=fixLocations;
 };
 
 /* ---------- Mensagens ---------- */
@@ -884,6 +885,25 @@ async function askStory(id,btn){const p=byId.get(id);if(!p||!S.sample)return;btn
   try{const r=await S.sample(prompt,{onText:({text})=>{if(el){el.className='story';el.textContent=text}}});await S.updatePlace(id,{story:(r.text||'').trim()})}
   catch(e){toast(e&&e.code==='rate_limited'?'Muitos pedidos agora, tente daqui a pouco.':'Não consegui escrever a história agora.');btn.disabled=false;btn.textContent='Pedir a história ao Claude'}}
 
+/* ---------- Corrigir locais das fotos já gravadas (app Android) ---------- */
+async function placeFor(lat,lon){const nr=PL.map(p=>({p,d:km(lat,lon,p.lat,p.lon)})).sort((a,b)=>a.d-b.d)[0];if(nr&&nr.d<.35)return nr.p.id;
+  const ex=S.places.find(q=>km(lat,lon,q.lat,q.lon)<.08);if(ex)return ex.id;return await S.addPlace({name:nr&&nr.d<3?'Perto de '+nr.p.n:'Lugar da foto',lat,lon,story:'',createdAt:Date.now()})}
+async function fixLocations(){
+  if(!isNative())return;let r;try{r=await Capacitor.registerPlugin('PhotoGps').pick()}catch(e){toast('Não consegui abrir a galeria.');return}
+  const list=(r&&r.files)||[];if(!list.length)return;if(r.gpsPermission===false){toast('Permita "acessar a localização das fotos" para o app conseguir corrigir.',6000);return}
+  formOpen=true;openSheet(`<div class="shead"><h2>Corrigindo locais…</h2></div><p class="meta" id="fixmsg">Lendo ${list.length} foto(s).</p>`);
+  let ok=0,semGps=0,naoAchei=0,fora=0;const usados=new Set();
+  for(const it of list){let t=null;if(it.date){const m=String(it.date).match(/(\d{4}):(\d\d):(\d\d) (\d\d):(\d\d):(\d\d)/);if(m)t=new Date(+m[1],m[2]-1,+m[3],+m[4],+m[5],+m[6]).getTime()}
+    if(typeof it.lat!=='number'||!(it.lat||it.lon)){semGps++;continue}
+    if(!inIsrael(it.lat,it.lon)){fora++;continue}
+    const cand=t?S.photos.filter(p=>!usados.has(p.id)&&Math.abs((p.takenAt||0)-t)<120000).sort((a,b)=>Math.abs(a.takenAt-t)-Math.abs(b.takenAt-t))[0]:null;
+    if(!cand){naoAchei++;continue}usados.add(cand.id);
+    try{const pid=await placeFor(it.lat,it.lon);await S.updatePhoto(cand.id,{lat:it.lat,lon:it.lon,placeId:pid,src:'exif'});ok++;const m=$('#fixmsg');if(m)m.textContent=`${ok} corrigida(s)…`}catch(e){}}
+  formOpen=false;rebuild();
+  openSheet(`<div class="shead"><h2>Pronto</h2><button class="close" data-act="close" aria-label="Fechar">×</button></div>
+  <p><b>${ok}</b> foto(s) movida(s) para o local certo.</p>${semGps?`<p class="meta">${semGps} foto(s) sem localização gravada (a câmera estava sem "Tags de localização"). Ajuste essas tocando na foto › Mudar lugar.</p>`:''}${fora?`<p class="meta">${fora} foto(s) com GPS fora de Israel e da Grécia (provável interferência): ajuste manualmente.</p>`:''}${naoAchei?`<p class="meta">${naoAchei} foto(s) não estavam no diário (pela data e hora).</p>`:''}`);
+  if(ok)flyTo(fitAll(),900);schedule()}
+
 /* ---------- Visualizador ---------- */
 const V=$('#viewer');let vs=null;
 function openViewer(pid,i){vs={pid,i};renderViewer()}
@@ -893,13 +913,15 @@ function renderViewer(edit){
   V.innerHTML=`<div class="img"><img src="${esc(urlOf(ph))}" alt="${esc(ph.caption||p.n)}">${list.length>1?'<button class="nav l" id="vl" aria-label="Anterior">‹</button><button class="nav r" id="vr" aria-label="Próxima">›</button>':''}<div class="vtop"><button class="iconbtn" id="vx" aria-label="Fechar">×</button></div></div>
   <div class="info"><h4>${esc(p.n)}</h4><p style="opacity:.8;font-style:italic">${fmtDate(ph.takenAt)} · foto ${vs.i+1} de ${list.length}</p>
   ${edit==='cap'?`<textarea id="vcap">${esc(ph.caption||'')}</textarea><div class="acts"><button class="btn p" id="vsave">Salvar</button><button class="btn" id="vcan">Cancelar</button></div>`
-  :edit==='place'?`<select id="vpl">${PL.map(q=>`<option value="${esc(q.id)}"${q.id===vs.pid?' selected':''}>${esc(q.n)}</option>`).join('')}</select><div class="acts"><button class="btn p" id="vsave2">Mover</button><button class="btn" id="vcan">Cancelar</button></div>`
+  :edit==='place'?`<select id="vpl">${PL.map(q=>`<option value="${esc(q.id)}"${q.id===vs.pid?' selected':''}>${esc(q.n)}</option>`).join('')}</select><div class="acts"><button class="btn p" id="vsave2">Mover</button><button class="btn" id="vmap">Marcar no mapa</button><button class="btn" id="vcan">Cancelar</button></div>`
   :`${ph.caption?`<p>${esc(ph.caption)}</p>`:''}${S.canAdd?'<div class="acts"><button class="btn" id="vec">Legenda</button><button class="btn" id="vep">Mudar lugar</button><button class="btn" id="vdel">Apagar</button></div>':''}`}</div>`;
   V.classList.add('on');
   const on=(id,fn)=>{const b=document.getElementById(id);if(b)b.onclick=fn};
   on('vx',()=>V.classList.remove('on'));on('vl',()=>{vs.i--;renderViewer()});on('vr',()=>{vs.i++;renderViewer()});
   on('vec',()=>renderViewer('cap'));on('vep',()=>renderViewer('place'));on('vcan',()=>renderViewer());
   on('vsave',async()=>{try{await S.updatePhoto(ph.id,{caption:$('#vcap').value.trim()});renderViewer()}catch{toast('Não deu para salvar.')}});
+  on('vmap',()=>{V.classList.remove('on');document.body.classList.add('picking');closeSheet();
+    picking=async ll=>{if(!ll){V.classList.add('on');return}try{const pid=await placeFor(ll[0],ll[1]);await S.updatePhoto(ph.id,{lat:ll[0],lon:ll[1],placeId:pid,src:'mapa'});rebuild();openPlace(pid)}catch{toast('Não deu para mover.')}}});
   on('vsave2',async()=>{const np=$('#vpl').value,q=byId.get(np);try{await S.updatePhoto(ph.id,{placeId:np,lat:q.lat,lon:q.lon});V.classList.remove('on');openPlace(np)}catch{toast('Não deu para mover.')}});
   on('vdel',async()=>{if(!await ask('Apagar esta foto do diário? Não dá para desfazer.','Apagar'))return;try{await S.deletePhoto(ph);if((photosOf.get(vs.pid)||[]).length)renderViewer();else V.classList.remove('on')}catch{toast('Não deu para apagar.')}});
 }
